@@ -1,0 +1,5 @@
+.git
+.gitignore
+.npm-cache
+data
+node_modules

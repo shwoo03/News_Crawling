@@ -1,0 +1,9 @@
+services:
+  news-crawler:
+    build:
+      context: .
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
