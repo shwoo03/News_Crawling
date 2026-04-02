@@ -7,18 +7,17 @@ OpenAI 뉴스 RSS를 감지해 새로운 글이 올라오면 본문을 요약한
 - 요약: Groq API (`https://api.groq.com/openai/v1`)
 - 본문: 상세 기사 페이지 본문만 사용
 - 중복 방지: SQLite에 처리한 URL 저장
-- 현재 전송 대상: **테스트 웹훅만 사용** (`TEST_DISCORD_WEBHOOK_URL`)
-  - `DISCORD_WEBHOOK_URL`은 설정해 둬도 현재 운영에서는 보내지지 않습니다.
+- 전송 대상: `DISCORD_WEBHOOK_URL`
+- 워커 실행 시 즉시 1회 확인 후, 기본값으로 10분마다 새 글을 다시 확인
 
 ## 실행 환경 변수
 - `GROQ_API_KEY` (필수): Groq API Key
 - `GROQ_MODEL` (기본값: `openai/gpt-oss-20b`)
 - `SUMMARY_MAX_CHARACTERS` (기본값: `400`, 현재 시스템 기본 테스트 기준)
-- `TEST_DISCORD_WEBHOOK_URL`: **실제로 보낼 테스트 웹훅 URL**
-- `DISCORD_WEBHOOK_URL` 또는 `DISCORD_WEBHOOK_ID` + `DISCORD_WEBHOOK_TOKEN`: 프로덕션 용도로 보관용(현재는 미사용)
+- `DISCORD_WEBHOOK_URL` 또는 `DISCORD_WEBHOOK_ID` + `DISCORD_WEBHOOK_TOKEN`: 실제 Discord 전송 대상
 - `TOP_TEST_ARTICLE_COUNT`: 테스트 시 기본 상위 개수 (기본 `2`)
 - `TOP_TEST_REFERENCE_URL`: 선택, 특정 URL 우선 정렬용
-- `POLL_INTERVAL_MINUTES`: 워커 주기(기본 `10`)
+- `POLL_INTERVAL_MINUTES`: 워커 주기(기본 `10`, 도커 배포 시 10분마다 전송 확인)
 - `LOG_LEVEL`: `debug` | `info` | `warn` | `error`
 - `LOG_FORMAT`: `pretty` | `json`
 - `SQLITE_PATH`: 상태 DB 경로 (기본 `./data/news-crawling.sqlite`)
@@ -46,6 +45,8 @@ npm run top -- --top-count 2 --focus-url https://openai.com/index/our-approach-t
 ```powershell
 docker compose up -d --build
 ```
+
+`docker compose`로 올리면 컨테이너 안에서 `npm start`가 실행되고, 앱이 계속 살아 있으면서 `POLL_INTERVAL_MINUTES=10` 기준으로 새 글을 확인해 Discord 웹훅으로 전송합니다.
 
 ## 테스트
 ```powershell

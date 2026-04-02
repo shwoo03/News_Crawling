@@ -5,7 +5,6 @@ export type AppConfig = {
   groqApiKey: string;
   groqModel: string;
   discordWebhookUrl?: string;
-  testDiscordWebhookUrl?: string;
   summaryMaxCharacters: number;
   topTestArticleCount: number;
   topTestReferenceUrl?: string;
@@ -35,7 +34,6 @@ export function getConfig(): AppConfig {
     groqApiKey,
     groqModel,
     discordWebhookUrl,
-    testDiscordWebhookUrl: process.env.TEST_DISCORD_WEBHOOK_URL?.trim(),
     summaryMaxCharacters,
     topTestArticleCount,
     topTestReferenceUrl,

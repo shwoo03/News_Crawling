@@ -17,7 +17,7 @@ export async function runWorker(config: AppConfig): Promise<void> {
     config.groqModel,
     config.summaryMaxCharacters,
   );
-  const webhookUrl = resolveSendWebhook(config);
+  const webhookUrl = config.discordWebhookUrl;
   const notifier = new DiscordNotifier(webhookUrl);
 
   if (!webhookUrl) {
@@ -67,7 +67,7 @@ export async function runTopArticleTest(
     config.groqModel,
     config.summaryMaxCharacters,
   );
-  const webhookUrl = resolveSendWebhook(config);
+  const webhookUrl = config.discordWebhookUrl;
 
   logger.info("Top test webhook target.", {
     webhook: summarizeWebhook(webhookUrl),
@@ -110,7 +110,7 @@ export async function runTopArticleTest(
         summaryLength: summary.charCount,
       });
       if (delivery.status === "skipped") {
-        logger.warn("Discord webhook is missing. Set TEST_DISCORD_WEBHOOK_URL to test delivery.");
+        logger.warn("Discord webhook is missing. Set DISCORD_WEBHOOK_URL to enable delivery.");
       }
     } catch (error) {
       logger.error("Top article test failed for item.", {
@@ -124,13 +124,6 @@ export async function runTopArticleTest(
 
 function notifierFromUrl(webhookUrl: string | undefined): DiscordNotifier {
   return new DiscordNotifier(webhookUrl);
-}
-
-function resolveSendWebhook(config: AppConfig): string | undefined {
-  if (config.testDiscordWebhookUrl) {
-    return config.testDiscordWebhookUrl;
-  }
-  return undefined;
 }
 
 function summarizeWebhook(value: string | undefined): string {
