@@ -14,7 +14,7 @@ export async function runWorker(config: AppConfig): Promise<void> {
   const sources: SourceAdapter[] = [new OpenAINewsAdapter()];
   const summarizer = new GroqSummarizer(
     config.groqApiKey,
-    config.groqModel,
+    config.groqModels,
     config.summaryMaxCharacters,
   );
   const webhookUrl = config.discordWebhookUrl;
@@ -64,7 +64,7 @@ export async function runTopArticleTest(
   const source = new OpenAINewsAdapter();
   const summarizer = new GroqSummarizer(
     config.groqApiKey,
-    config.groqModel,
+    config.groqModels,
     config.summaryMaxCharacters,
   );
   const webhookUrl = config.discordWebhookUrl;

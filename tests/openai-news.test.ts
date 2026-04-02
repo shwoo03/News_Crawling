@@ -59,7 +59,7 @@ test("GroqSummarizer retries when the first summary exceeds the configured limit
     );
   };
 
-  const summarizer = new GroqSummarizer("test-key", "test-model", 400, fetchStub);
+  const summarizer = new GroqSummarizer("test-key", ["test-model"], 400, fetchStub);
   const summary = await summarizer.summarize({
     title: "테스트 제목",
     url: "https://example.com/article",
@@ -97,7 +97,7 @@ test("GroqSummarizer formats long single-line summaries into readable lines", as
     );
   };
 
-  const summarizer = new GroqSummarizer("test-key", "test-model", 400, fetchStub);
+  const summarizer = new GroqSummarizer("test-key", ["test-model"], 400, fetchStub);
   const summary = await summarizer.summarize({
     title: "테스트 기사 제목",
     url: "https://example.com/article",
@@ -107,6 +107,61 @@ test("GroqSummarizer formats long single-line summaries into readable lines", as
   const containsLineBreak = summary.summaryKo.includes("\n");
   assert.equal(containsLineBreak, true);
   assert.ok(summary.charCount <= 400);
+});
+
+test("GroqSummarizer falls back to the next model after rate limits", async () => {
+  const requestedModels: string[] = [];
+  const fetchStub: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { model: string };
+    requestedModels.push(body.model);
+
+    if (body.model === "openai/gpt-oss-120b") {
+      return new Response("rate limit", {
+        status: 429,
+        headers: {
+          "retry-after": "0",
+        },
+      });
+    }
+
+    return new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: "백업 모델이 동일 기사 핵심 내용을 800자 이하로 안정적으로 요약했습니다.",
+            },
+          },
+        ],
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  };
+
+  const summarizer = new GroqSummarizer(
+    "test-key",
+    ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct"],
+    800,
+    fetchStub,
+  );
+  const summary = await summarizer.summarize({
+    title: "테스트 제목",
+    url: "https://example.com/article",
+    bodyText: "테스트 본문",
+  });
+
+  assert.match(summary.summaryKo, /백업 모델/u);
+  assert.deepEqual(requestedModels, [
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-120b",
+    "llama-3.3-70b-versatile",
+  ]);
 });
 
 test("SqliteStateStore prevents duplicate deliveries by remembering seen URLs", () => {
@@ -162,7 +217,7 @@ test("runCycle bootstraps existing items without calling summary or Discord", as
     },
   };
 
-  const summarizer = new GroqSummarizer("test-key", "test-model", 400, async () => {
+  const summarizer = new GroqSummarizer("test-key", ["test-model"], 400, async () => {
     throw new Error("summarizer should not run during bootstrap");
   });
   const notifier = new DiscordNotifier("https://discord.com/api/webhooks/test", async () => {

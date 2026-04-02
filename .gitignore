@@ -1,3 +1,4 @@
 .npm-cache/
 data/*.sqlite
+!data/news-crawling.sqlite
 node_modules/

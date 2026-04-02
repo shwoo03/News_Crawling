@@ -13,7 +13,7 @@ type GroqResponse = {
 export class GroqSummarizer {
   constructor(
     private readonly apiKey: string,
-    private readonly model: string,
+    private readonly models: string[],
     private readonly maxCharacters: number,
     private readonly fetchImpl: FetchLike = fetch,
   ) {}
@@ -50,10 +50,25 @@ export class GroqSummarizer {
   }
 
   private async requestSummary(userPrompt: string): Promise<string> {
-    return this.requestSummaryWithRetry(userPrompt, 0);
+    let lastRateLimitError: GroqRateLimitError | undefined;
+
+    for (const model of this.models) {
+      try {
+        return await this.requestSummaryWithRetry(userPrompt, model, 0);
+      } catch (error) {
+        if (error instanceof GroqRateLimitError) {
+          lastRateLimitError = error;
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw lastRateLimitError ?? new Error("Groq request failed before any model could respond.");
   }
 
-  private async requestSummaryWithRetry(userPrompt: string, attempt: number): Promise<string> {
+  private async requestSummaryWithRetry(userPrompt: string, model: string, attempt: number): Promise<string> {
     const response = await this.fetchImpl("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -61,7 +76,7 @@ export class GroqSummarizer {
         authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
-        model: this.model,
+        model,
         temperature: 0.2,
         messages: [
           {
@@ -83,10 +98,14 @@ export class GroqSummarizer {
         const retryMs =
           Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : (attempt + 1) * 5000;
         await delay(retryMs);
-        return this.requestSummaryWithRetry(userPrompt, attempt + 1);
+        return this.requestSummaryWithRetry(userPrompt, model, attempt + 1);
       }
 
       const errorText = await response.text();
+      if (response.status === 429) {
+        throw new GroqRateLimitError(model, errorText || "Rate limit exceeded.");
+      }
+
       throw new Error(`Groq request failed with status ${response.status}: ${errorText}`);
     }
 
@@ -102,6 +121,13 @@ export class GroqSummarizer {
     }
 
     throw new Error("Groq response did not include summary content.");
+  }
+}
+
+class GroqRateLimitError extends Error {
+  constructor(model: string, detail: string) {
+    super(`Groq rate limit hit for model ${model}: ${detail}`);
+    this.name = "GroqRateLimitError";
   }
 }
 

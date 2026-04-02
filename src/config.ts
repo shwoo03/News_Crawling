@@ -3,7 +3,7 @@ import type { LogFormat, LogLevel } from "./types.ts";
 
 export type AppConfig = {
   groqApiKey: string;
-  groqModel: string;
+  groqModels: string[];
   discordWebhookUrl?: string;
   summaryMaxCharacters: number;
   topTestArticleCount: number;
@@ -20,8 +20,8 @@ export function getConfig(): AppConfig {
     throw new Error("GROQ_API_KEY is required.");
   }
 
-  const groqModel = process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-20b";
-  const summaryMaxCharacters = parsePositiveInteger(process.env.SUMMARY_MAX_CHARACTERS, 400);
+  const groqModels = resolveGroqModels();
+  const summaryMaxCharacters = parsePositiveInteger(process.env.SUMMARY_MAX_CHARACTERS, 800);
   const topTestArticleCount = parsePositiveInteger(process.env.TOP_TEST_ARTICLE_COUNT, 2);
   const topTestReferenceUrl = process.env.TOP_TEST_REFERENCE_URL?.trim() || undefined;
   const pollIntervalMinutes = parsePositiveInteger(process.env.POLL_INTERVAL_MINUTES, 10);
@@ -32,7 +32,7 @@ export function getConfig(): AppConfig {
 
   return {
     groqApiKey,
-    groqModel,
+    groqModels,
     discordWebhookUrl,
     summaryMaxCharacters,
     topTestArticleCount,
@@ -42,6 +42,17 @@ export function getConfig(): AppConfig {
     logFormat,
     sqlitePath,
   };
+}
+
+function resolveGroqModels(): string[] {
+  const primary = process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
+  const fallbackRaw = process.env.GROQ_MODEL_FALLBACKS?.trim() || "";
+  const fallbacks = fallbackRaw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return [...new Set([primary, ...fallbacks])];
 }
 
 function resolveWebhookUrl(): string | undefined {

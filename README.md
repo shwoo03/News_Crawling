@@ -12,8 +12,9 @@ OpenAI 뉴스 RSS를 감지해 새로운 글이 올라오면 본문을 요약한
 
 ## 실행 환경 변수
 - `GROQ_API_KEY` (필수): Groq API Key
-- `GROQ_MODEL` (기본값: `openai/gpt-oss-20b`)
-- `SUMMARY_MAX_CHARACTERS` (기본값: `400`, 현재 시스템 기본 테스트 기준)
+- `GROQ_MODEL` (기본값: `openai/gpt-oss-120b`)
+- `GROQ_MODEL_FALLBACKS` (예시: `llama-3.3-70b-versatile,meta-llama/llama-4-scout-17b-16e-instruct`)
+- `SUMMARY_MAX_CHARACTERS` (기본값: `800`)
 - `DISCORD_WEBHOOK_URL` 또는 `DISCORD_WEBHOOK_ID` + `DISCORD_WEBHOOK_TOKEN`: 실제 Discord 전송 대상
 - `TOP_TEST_ARTICLE_COUNT`: 테스트 시 기본 상위 개수 (기본 `2`)
 - `TOP_TEST_REFERENCE_URL`: 선택, 특정 URL 우선 정렬용
@@ -47,6 +48,8 @@ docker compose up -d --build
 ```
 
 `docker compose`로 올리면 컨테이너 안에서 `npm start`가 실행되고, 앱이 계속 살아 있으면서 `POLL_INTERVAL_MINUTES=10` 기준으로 새 글을 확인해 Discord 웹훅으로 전송합니다.
+
+Groq 요약 모델은 기본적으로 `openai/gpt-oss-120b`를 먼저 쓰고, 레이트리밋(`429`)이 나면 `GROQ_MODEL_FALLBACKS`에 적은 순서대로 자동 전환합니다.
 
 ## 테스트
 ```powershell
