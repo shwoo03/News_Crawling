@@ -5,13 +5,14 @@ import { Logger } from "./logger.ts";
 import { DiscordNotifier } from "./services/discord.ts";
 import { GroqSummarizer } from "./services/summarizer.ts";
 import { OpenAINewsAdapter } from "./sources/openai-news.ts";
+import { AnthropicNewsAdapter } from "./sources/anthropic-news.ts";
 import { SqliteStateStore } from "./storage/sqlite.ts";
 import type { SourceAdapter } from "./types.ts";
 
 export async function runWorker(config: AppConfig): Promise<void> {
   const logger = new Logger(config.logLevel, config.logFormat);
   const store = new SqliteStateStore(config.sqlitePath);
-  const sources: SourceAdapter[] = [new OpenAINewsAdapter()];
+  const sources: SourceAdapter[] = [new OpenAINewsAdapter(), new AnthropicNewsAdapter()];
   const summarizer = new GroqSummarizer(
     config.groqApiKey,
     config.groqModels,
@@ -61,7 +62,7 @@ export async function runTopArticleTest(
   focusUrl?: string,
 ): Promise<void> {
   const logger = new Logger(config.logLevel, config.logFormat);
-  const source = new OpenAINewsAdapter();
+  const sources: SourceAdapter[] = [new OpenAINewsAdapter(), new AnthropicNewsAdapter()];
   const summarizer = new GroqSummarizer(
     config.groqApiKey,
     config.groqModels,
@@ -74,50 +75,63 @@ export async function runTopArticleTest(
   });
 
   logger.info("Running top article test.", {
-    sourceId: source.id,
-    sourceName: source.name,
+    sourceCount: sources.length,
     requestedCount: articleCount,
   });
 
-  const items = sortByPublishedDesc(await source.listLatest());
-  if (items.length === 0) {
-    logger.warn("No items found in feed for test mode.");
-    return;
-  }
+  for (const source of sources) {
+    logger.info("Top article test source.", {
+      sourceId: source.id,
+      sourceName: source.name,
+    });
 
-  const selected = pickTopItems(items, articleCount, focusUrl);
-  logger.info("Top article test selected items.", {
-    totalItems: items.length,
-    selectedCount: selected.length,
-    urls: selected.map((item) => item.url),
-  });
-  if (selected.length === 0) {
-    logger.warn("No items available after sort/filter for test mode.");
-    return;
-  }
-
-  for (const [index, item] of selected.entries()) {
-    try {
-      const article = await source.fetchArticle(item);
-      const summary = await summarizer.summarize(article);
-      const delivery = await notifierFromUrl(webhookUrl).send(article, summary);
-
-      logger.info("Top article test processed.", {
-        index: index + 1,
-        title: article.title,
-        url: article.url,
-        deliveryStatus: delivery.status,
-        summaryLength: summary.charCount,
+    const items = sortByPublishedDesc(await source.listLatest());
+    if (items.length === 0) {
+      logger.warn("No items found in feed for test mode.", {
+        sourceId: source.id,
       });
-      if (delivery.status === "skipped") {
-        logger.warn("Discord webhook is missing. Set DISCORD_WEBHOOK_URL to enable delivery.");
+      continue;
+    }
+
+    const selected = pickTopItems(items, articleCount, focusUrl);
+    logger.info("Top article test selected items.", {
+      sourceId: source.id,
+      totalItems: items.length,
+      selectedCount: selected.length,
+      urls: selected.map((item) => item.url),
+    });
+    if (selected.length === 0) {
+      logger.warn("No items available after sort/filter for test mode.", {
+        sourceId: source.id,
+      });
+      continue;
+    }
+
+    for (const [index, item] of selected.entries()) {
+      try {
+        const article = await source.fetchArticle(item);
+        const summary = await summarizer.summarize(article);
+        const delivery = await notifierFromUrl(webhookUrl).send(article, summary);
+
+        logger.info("Top article test processed.", {
+          sourceId: source.id,
+          index: index + 1,
+          title: article.title,
+          url: article.url,
+          deliveryStatus: delivery.status,
+          summaryLength: summary.charCount,
+        });
+        if (delivery.status === "skipped") {
+          logger.warn("Discord webhook is missing. Set DISCORD_WEBHOOK_URL to enable delivery.");
+        }
+      } catch (error) {
+        logger.error("Top article test failed for item.", {
+          sourceId: source.id,
+          index: index + 1,
+          url: item.url,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
-    } catch (error) {
-      logger.error("Top article test failed for item.", {
-        index: index + 1,
-        url: item.url,
-        error: error instanceof Error ? error.message : String(error),
-      });
     }
   }
 }
