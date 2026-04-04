@@ -7,6 +7,9 @@
     "top": "node --experimental-transform-types src/index.ts --top",
     "test": "node --experimental-transform-types --test tests/*.test.ts"
   },
+  "dependencies": {
+    "playwright": "^1.51.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/shwoo03/News_Crawling.git"

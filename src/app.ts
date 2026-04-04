@@ -6,13 +6,18 @@ import { DiscordNotifier } from "./services/discord.ts";
 import { GroqSummarizer } from "./services/summarizer.ts";
 import { OpenAINewsAdapter } from "./sources/openai-news.ts";
 import { AnthropicNewsAdapter } from "./sources/anthropic-news.ts";
+import { ThreadsNewsAdapter } from "./sources/threads-news.ts";
 import { SqliteStateStore } from "./storage/sqlite.ts";
 import type { SourceAdapter } from "./types.ts";
 
 export async function runWorker(config: AppConfig): Promise<void> {
   const logger = new Logger(config.logLevel, config.logFormat);
   const store = new SqliteStateStore(config.sqlitePath);
-  const sources: SourceAdapter[] = [new OpenAINewsAdapter(), new AnthropicNewsAdapter()];
+  const sources: SourceAdapter[] = [
+    new OpenAINewsAdapter(),
+    new AnthropicNewsAdapter(),
+    new ThreadsNewsAdapter(),
+  ];
   const summarizer = new GroqSummarizer(
     config.groqApiKey,
     config.groqModels,
@@ -62,7 +67,11 @@ export async function runTopArticleTest(
   focusUrl?: string,
 ): Promise<void> {
   const logger = new Logger(config.logLevel, config.logFormat);
-  const sources: SourceAdapter[] = [new OpenAINewsAdapter(), new AnthropicNewsAdapter()];
+  const sources: SourceAdapter[] = [
+    new OpenAINewsAdapter(),
+    new AnthropicNewsAdapter(),
+    new ThreadsNewsAdapter(),
+  ];
   const summarizer = new GroqSummarizer(
     config.groqApiKey,
     config.groqModels,
