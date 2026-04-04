@@ -1,4 +1,3 @@
-import { chromium, type Browser, type Page } from "playwright";
 import type { ArticleContent, SourceAdapter, SourceListItem } from "../types.ts";
 import { decodeHtmlEntities, normalizeWhitespace, stripHtmlToLines } from "../utils/text.ts";
 
@@ -443,10 +442,20 @@ function matchFirst(html: string, pattern: RegExp): RegExpMatchArray | undefined
 }
 
 async function fetchRenderedHtml(url: string): Promise<string> {
-  let browser: Browser | undefined;
-  let page: Page | undefined;
+  let browser: { close: () => Promise<void> } | undefined;
+  let page:
+    | {
+      close: () => Promise<void>;
+      goto: (url: string, options: { waitUntil: string; timeout: number }) => Promise<void>;
+      waitForLoadState: (state: string, options: { timeout: number }) => Promise<void>;
+      waitForTimeout: (ms: number) => Promise<void>;
+      content: () => Promise<string>;
+    }
+    | undefined;
 
   try {
+    const { chromium } = await loadPlaywright();
+
     browser = await chromium.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-dev-shm-usage"],
@@ -474,5 +483,16 @@ async function fetchRenderedHtml(url: string): Promise<string> {
     if (browser) {
       await browser.close().catch(() => undefined);
     }
+  }
+}
+
+async function loadPlaywright() {
+  try {
+    return await import("playwright");
+  } catch (error) {
+    const cause = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Playwright runtime is not available. Install it with \`npm install\` and run \`npx playwright install\`. Original error: ${cause}`,
+    );
   }
 }
