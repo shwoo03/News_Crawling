@@ -1,0 +1,55 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scripts/agent-flow.py start --format json"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scripts/hooks/pre-tool-use-guard.py.example"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scripts/hooks/post-tool-use-log.py"
+          }
+        ]
+      },
+      {
+        "matcher": "MCP",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scripts/tool-health.py normalize-preview --status completed"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scripts/session-snapshot.py write"
+          }
+        ]
+      }
+    ]
+  }
+}

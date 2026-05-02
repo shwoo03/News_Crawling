@@ -14,7 +14,7 @@ OpenAI 뉴스 RSS를 감지해 새로운 글이 올라오면 본문을 요약한
 - `GROQ_API_KEY` (필수): Groq API Key
 - `GROQ_MODEL` (기본값: `openai/gpt-oss-120b`)
 - `GROQ_MODEL_FALLBACKS` (예시: `llama-3.3-70b-versatile,meta-llama/llama-4-scout-17b-16e-instruct`)
-- `SUMMARY_MAX_CHARACTERS` (기본값: `800`)
+- `SUMMARY_MAX_CHARACTERS` (기본값: `1800`)
 - `DISCORD_WEBHOOK_URL` 또는 `DISCORD_WEBHOOK_ID` + `DISCORD_WEBHOOK_TOKEN`: 실제 Discord 전송 대상
 - `TOP_TEST_ARTICLE_COUNT`: 테스트 시 기본 상위 개수 (기본 `2`)
 - `TOP_TEST_REFERENCE_URL`: 선택, 특정 URL 우선 정렬용

@@ -1,0 +1,14 @@
+{
+  "schema_version": "ai-architecture.schema.v1",
+  "name": "runtime-event",
+  "type": "object",
+  "required": ["ts"],
+  "properties": {
+    "ts": {"type": "string"},
+    "phase": {"type": "string"},
+    "action": {"type": "string"},
+    "project": {"type": "string"},
+    "tool_call": {"type": "object"},
+    "data": {"type": "object"}
+  }
+}

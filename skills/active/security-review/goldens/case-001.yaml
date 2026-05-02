@@ -1,0 +1,29 @@
+id: case-001
+skill: security-review
+created_at: 2026-05-02
+last_verified_at: 2026-05-02
+staleness_check_due: 2026-07-31
+
+input: |
+  Review a script that deletes and rewrites generated directories.
+
+actual_output: |
+  Check that deletion targets are allowlisted, paths stay inside the project root,
+  local configuration files are preserved, and failures happen before mutation.
+
+expected_properties:
+  - deletion targets are allowlisted
+  - paths stay inside the project root
+  - local configuration files are preserved
+  - failures happen before mutation
+
+forbidden_patterns:
+  - "delete arbitrary target"
+  - "trust manifest blindly"
+
+evaluation:
+  judge_method: "schema-check"
+  pass_threshold: 1.0
+
+notes: |
+  Captures the safety model for generated artifact refreshes.

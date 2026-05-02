@@ -1,5 +1,8 @@
 import type { ArticleContent, DiscordDeliveryResult, FetchLike, SummaryResult } from "../types.ts";
 
+const DISCORD_DESCRIPTION_LIMIT = 4000;
+const DISCORD_FIELD_VALUE_LIMIT = 1000;
+
 export class DiscordNotifier {
   constructor(
     private readonly webhookUrl: string | undefined,
@@ -17,25 +20,30 @@ export class DiscordNotifier {
     const payload = {
       embeds: [
         {
-          title: article.title,
+          title: formatBriefingTitle(article.sourceName),
           url: article.url,
-          description: summary.summaryKo,
+          description: formatBriefingDescription(summary),
           color: 0x10a37f,
           fields: [
             {
-              name: "Source",
-              value: article.sourceName,
-              inline: true,
-            },
-            {
-              name: "Published",
-              value: formatPublishedAt(article.publishedAt),
-              inline: true,
-            },
-            {
-              name: "Link",
-              value: article.url,
+              name: "한눈에 보기",
+              value: truncateDiscordValue(formatBullets(summary.briefing.highlights), DISCORD_FIELD_VALUE_LIMIT),
               inline: false,
+            },
+            {
+              name: "왜 중요할까",
+              value: truncateDiscordValue(formatBullets(summary.briefing.importance), DISCORD_FIELD_VALUE_LIMIT),
+              inline: false,
+            },
+            {
+              name: "출처",
+              value: truncateDiscordValue(article.sourceName, DISCORD_FIELD_VALUE_LIMIT),
+              inline: true,
+            },
+            {
+              name: "발행 시각",
+              value: truncateDiscordValue(formatPublishedAt(article.publishedAt), DISCORD_FIELD_VALUE_LIMIT),
+              inline: true,
             },
           ],
         },
@@ -59,10 +67,36 @@ export class DiscordNotifier {
   }
 }
 
+function formatBriefingTitle(sourceName: string): string {
+  return sourceName.endsWith("뉴스") ? `${sourceName} 브리핑` : `${sourceName} 뉴스 브리핑`;
+}
+
+function formatBriefingDescription(summary: SummaryResult): string {
+  const description = [
+    summary.briefing.lead,
+    "",
+    ...summary.briefing.summary,
+  ].join("\n").trim();
+
+  return truncateDiscordValue(description, DISCORD_DESCRIPTION_LIMIT);
+}
+
+function formatBullets(items: string[]): string {
+  return items.map((item) => `• ${item}`).join("\n");
+}
+
 function formatPublishedAt(value: string): string {
   return new Intl.DateTimeFormat("ko-KR", {
     dateStyle: "long",
     timeStyle: "short",
     timeZone: "Asia/Seoul",
   }).format(new Date(value));
+}
+
+function truncateDiscordValue(value: string, limit: number): string {
+  if (value.length <= limit) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 }

@@ -1,0 +1,11 @@
+# MCP 서버 단일 진실 소스. convert.sh가 .codex/mcp.json, .mcp.json으로 변환.
+
+servers:
+  # 사용자가 채울 자리. 예시:
+  # - name: "github"
+  #   transport: "stdio"
+  #   command: "npx"
+  #   args: ["-y", "@modelcontextprotocol/server-github"]
+  #   env_required: ["GITHUB_TOKEN"]
+  #   audit_passed: false
+  #   added_at: null

@@ -1,0 +1,26 @@
+id: case-001
+skill: research-evaluator
+created_at: 2026-05-02
+last_verified_at: 2026-05-02
+staleness_check_due: 2026-07-31
+
+input: |
+  Find similar open-source projects and choose what to adopt.
+
+actual_output: |
+  Collect 10 candidates, filter for recent commits and audit results, inspect the top 3, then present adopt/refactor/reject rationale for user confirmation.
+
+expected_properties:
+  - 10 candidates
+  - top 3
+  - user confirmation
+
+forbidden_patterns:
+  - add dependency without approval
+
+evaluation:
+  judge_method: "schema-check"
+  pass_threshold: 0.8
+
+notes: |
+  Ensures external adoption remains review-first.

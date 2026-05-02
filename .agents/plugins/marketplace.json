@@ -1,0 +1,11 @@
+{
+  "plugins": [
+    {
+      "id": "ai-architecture-harness",
+      "name": "AI Architecture Harness",
+      "version": "0.1.0",
+      "description": "Canonical Codex/Claude reusable agent harness skeleton.",
+      "path": "."
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": "ai-architecture.schema.v1",
+  "name": "script-catalog",
+  "type": "yaml-lite",
+  "required_paths": ["scripts/agent-flow.py"],
+  "public_paths": ["scripts/agent-flow.py"],
+  "required_routing_modes": ["decide", "research", "closeout", "maintain", "build"],
+  "write_policies": ["read_only", "manual_work_required", "write_with_confirmation"]
+}

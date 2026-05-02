@@ -1,0 +1,38 @@
+# 역할별 primary 모델·CLI 정의. v1/v2 전환의 단일 지점.
+
+version: 1
+mode: "codex-primary"           # v2에서는 "claude-primary"
+
+roles:
+  planner:
+    primary: codex
+    model: "{{사용자_설정_필요}}"   # 예: gpt-5.5, gpt-5-codex
+    fallback: null
+
+  implementer:
+    primary: codex
+    model: "{{사용자_설정_필요}}"
+
+  researcher:
+    primary: codex
+    mode: subagent
+    model: "{{사용자_설정_필요}}"
+
+  verifier:
+    primary: codex
+    mode: headless
+    model: "{{가벼운_모델_권장}}"   # 예: gpt-5-mini
+
+  evaluator:
+    primary: codex
+    mode: headless
+    model: "{{가벼운_모델_권장}}"
+
+escalation:
+  trigger: "replan_count >= 3"
+  to: null                      # v1: 사용자에게 보고만. v2엔 claude
+
+# v2 전환 시 변경 예시 (주석으로 안내)
+# roles.planner.primary: claude
+# roles.planner.model: claude-opus-4-7
+# escalation.to: { primary: human }

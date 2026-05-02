@@ -19,9 +19,17 @@ export type ArticleContent = {
   bodyText: string;
 };
 
+export type SummaryBriefing = {
+  lead: string;
+  summary: string[];
+  highlights: string[];
+  importance: string[];
+};
+
 export type SummaryResult = {
   summaryKo: string;
   charCount: number;
+  briefing: SummaryBriefing;
 };
 
 export type DiscordDeliveryResult =

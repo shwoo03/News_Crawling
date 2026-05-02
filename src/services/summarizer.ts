@@ -1,4 +1,4 @@
-import type { FetchLike, SummaryResult } from "../types.ts";
+import type { FetchLike, SummaryBriefing, SummaryResult } from "../types.ts";
 import { truncateForPrompt } from "../utils/text.ts";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -29,8 +29,15 @@ export class GroqSummarizer {
     let lastFailure = "Unknown summarization error.";
     for (const prompt of attempts) {
       const summary = await this.requestSummary(prompt);
-      const normalized = normalizeSummary(summary);
-      const readable = formatReadableSummary(normalized);
+      let briefing: SummaryBriefing;
+      try {
+        briefing = parseBriefingSummary(summary);
+      } catch (error) {
+        lastFailure = `Groq returned invalid briefing JSON: ${error instanceof Error ? error.message : String(error)}`;
+        continue;
+      }
+
+      const readable = formatBriefingSummary(briefing);
       if (!readable) {
         lastFailure = "Groq returned an empty summary.";
         continue;
@@ -40,6 +47,7 @@ export class GroqSummarizer {
         return {
           summaryKo: readable,
           charCount: readable.length,
+          briefing,
         };
       }
 
@@ -82,7 +90,7 @@ export class GroqSummarizer {
           {
             role: "system",
             content:
-              "You summarize only the provided article body. Output must be in Korean, factual, concise, easy to read, and must not include outside knowledge or speculation.",
+              "You summarize only the provided article body. Output must be Korean JSON only, factual, concise, easy to read, and must not include outside knowledge or speculation.",
           },
           {
             role: "user",
@@ -143,8 +151,15 @@ function buildUserPrompt(
 
   return [
     "Use only the article body below. Summarize only facts present in the provided content.",
-    hardLimitInstruction,
-    "Prefer short Korean sentences.",
+    `The final rendered briefing should be under ${targetCharacters} Korean characters. ${hardLimitInstruction}`,
+    "Return valid JSON only. Do not wrap it in markdown.",
+    "Use this exact shape:",
+    "{\"lead\":\"원문의 핵심 분위기를 살린 도입 1문장\",\"summary\":[\"핵심 요약 1\",\"핵심 요약 2\",\"핵심 요약 3\"],\"highlights\":[\"한눈에 보기 1\",\"한눈에 보기 2\",\"한눈에 보기 3\",\"한눈에 보기 4\",\"한눈에 보기 5\"],\"importance\":[\"왜 중요한지 1\",\"왜 중요한지 2\",\"왜 중요한지 3\"]}",
+    "Field rules:",
+    "- lead: 1 sentence, engaging but factual.",
+    "- summary: exactly 3 Korean sentences with concrete details from the source.",
+    "- highlights: exactly 5 concise Korean bullet items.",
+    "- importance: exactly 3 Korean bullet items explaining practical implications from the source.",
     "Do not add guesses or background not explicitly stated in the source text.",
     "Do not use URLs, markdown links, tables, or hashtags.",
     `Title: ${input.title}`,
@@ -154,7 +169,89 @@ function buildUserPrompt(
   ].join("\n");
 }
 
-function normalizeSummary(value: string): string {
+function parseBriefingSummary(value: string): SummaryBriefing {
+  const parsed = parseJsonObject(value);
+  const briefing = {
+    lead: readString(parsed, "lead"),
+    summary: readStringArray(parsed, "summary", 3),
+    highlights: readStringArray(parsed, "highlights", 5),
+    importance: readStringArray(parsed, "importance", 3),
+  };
+
+  if (!briefing.lead) {
+    throw new Error("lead is required.");
+  }
+
+  return briefing;
+}
+
+function parseJsonObject(value: string): Record<string, unknown> {
+  const normalized = normalizeText(value).replace(/^```(?:json)?\s*/iu, "").replace(/\s*```$/u, "");
+
+  try {
+    const parsed = JSON.parse(normalized);
+    if (isRecord(parsed)) {
+      return parsed;
+    }
+  } catch {
+    // Try extracting the first JSON object from responses that include small wrappers.
+  }
+
+  const start = normalized.indexOf("{");
+  const end = normalized.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    const parsed = JSON.parse(normalized.slice(start, end + 1));
+    if (isRecord(parsed)) {
+      return parsed;
+    }
+  }
+
+  throw new Error("response is not a JSON object.");
+}
+
+function readString(input: Record<string, unknown>, key: string): string {
+  const value = input[key];
+  if (typeof value !== "string") {
+    throw new Error(`${key} must be a string.`);
+  }
+
+  const normalized = cleanBriefingLine(value);
+  if (!normalized) {
+    throw new Error(`${key} must not be empty.`);
+  }
+
+  return normalized;
+}
+
+function readStringArray(input: Record<string, unknown>, key: string, count: number): string[] {
+  const value = input[key];
+  if (!Array.isArray(value)) {
+    throw new Error(`${key} must be an array.`);
+  }
+
+  const normalized = value
+    .filter((item): item is string => typeof item === "string")
+    .map(cleanBriefingLine)
+    .filter(Boolean);
+
+  if (normalized.length < count) {
+    throw new Error(`${key} must include at least ${count} text items.`);
+  }
+
+  return normalized.slice(0, count);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function cleanBriefingLine(value: string): string {
+  return normalizeText(value)
+    .replace(/^[•\-\d.)\s]+/u, "")
+    .trim();
+}
+
+function normalizeText(value: string): string {
   return value
     .replace(/\r\n?/gu, "\n")
     .replace(/[ \t]+/gu, " ")
@@ -162,37 +259,20 @@ function normalizeSummary(value: string): string {
     .trim();
 }
 
-function formatReadableSummary(value: string): string {
-  if (!value) {
-    return "";
-  }
+function formatBriefingSummary(briefing: SummaryBriefing): string {
+  const parts = [
+    briefing.lead,
+    "",
+    ...briefing.summary.map((item) => wrapByLineLength(item, 110)),
+    "",
+    "한눈에 보기",
+    ...briefing.highlights.map((item) => `• ${wrapByLineLength(item, 100)}`),
+    "",
+    "왜 중요할까",
+    ...briefing.importance.map((item) => `• ${wrapByLineLength(item, 100)}`),
+  ];
 
-  const normalized = value.replace(/\s*\n\s*/gu, "\n").trim();
-  const lines = normalized.split(/\n+/u).filter(Boolean);
-  const formattedSegments: string[] = [];
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      continue;
-    }
-
-    const sentenceSplit = trimmed
-      .split(/(?<=[.!?。！？])\s+/u)
-      .map((sentence) => sentence.trim())
-      .filter(Boolean);
-
-    if (sentenceSplit.length <= 1) {
-      formattedSegments.push(wrapByLineLength(trimmed, 110));
-      continue;
-    }
-
-    for (const sentence of sentenceSplit) {
-      formattedSegments.push(wrapByLineLength(sentence, 110));
-    }
-  }
-
-  return formattedSegments.filter(Boolean).join("\n");
+  return parts.join("\n").trim();
 }
 
 function wrapByLineLength(value: string, maxLineLength: number): string {
@@ -201,6 +281,10 @@ function wrapByLineLength(value: string, maxLineLength: number): string {
   }
 
   const words = value.split(" ");
+  if (words.length <= 1) {
+    return value;
+  }
+
   const lines: string[] = [];
   let current = "";
 

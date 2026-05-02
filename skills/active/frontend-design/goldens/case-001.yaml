@@ -1,0 +1,27 @@
+id: case-001
+skill: frontend-design
+created_at: 2026-05-02
+last_verified_at: 2026-05-02
+staleness_check_due: 2026-07-31
+
+input: |
+  사용자가 웹 UI나 앱 화면을 만들어 달라고 한다.
+
+actual_output: |
+  Choose a clear aesthetic direction, implement production-grade functional UI, use distinctive typography and cohesive color, and avoid generic AI-generated aesthetics.
+
+expected_properties:
+  - clear aesthetic direction
+  - production-grade
+  - avoid generic AI-generated aesthetics
+
+forbidden_patterns:
+  - generic AI slop
+
+evaluation:
+  judge_method: schema-check
+  pass_threshold: 0.8
+
+notes: |
+  Keeps frontend work tied to intentional visual direction and functional code.
+

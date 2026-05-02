@@ -1,0 +1,24 @@
+{
+  "schema_version": "ai-architecture.schema.v1",
+  "name": "session-snapshot",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ts",
+    "project",
+    "handoff_path",
+    "activity_log_last",
+    "completion_evidence_last",
+    "open_blockers"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "enum": ["ai-architecture.session-snapshot.v1"]},
+    "ts": {"type": "string"},
+    "project": {"type": "string"},
+    "handoff_path": {"type": "string", "path": "relative"},
+    "handoff_exists": {"type": "boolean"},
+    "activity_log_last": {"type": ["object", "null"]},
+    "completion_evidence_last": {"type": ["object", "null"]},
+    "open_blockers": {"type": "array", "items": {"type": "string"}}
+  }
+}

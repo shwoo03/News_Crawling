@@ -1,0 +1,40 @@
+# 추적 대상 외부 repo. scripts/refresh-references.sh가 갱신.
+
+last_refreshed: null
+
+repos:
+  - name: "everything-claude-code"
+    url: "https://github.com/affaan-m/everything-claude-code.git"
+    local_path: "../AI_architecture_references/everything-claude-code"
+    last_known_commit: "841beea45cb25ba51f29fa45b7e272938d19b80a"
+    last_known_commit_date: "2026-04-30T12:25:14-04:00"
+    last_checked: null
+    why_tracked: "harness 최적화 패턴 참고"
+    import_targets: ["skills/_meta/", "rules/common/", "mcp/"]
+
+  - name: "hermes-agent"
+    url: "https://github.com/NousResearch/hermes-agent.git"
+    local_path: "../AI_architecture_references/hermes-agent"
+    last_known_commit: "20132435c07cd1cee9f896ba9cd504698c09589c"
+    last_known_commit_date: "2026-05-01T05:30:05-07:00"
+    last_checked: null
+    why_tracked: "agent runtime, plans, skill 구조 참고"
+    import_targets: ["agents/", "plans/", "skills/_meta/"]
+
+  - name: "opencode"
+    url: "https://github.com/anomalyco/opencode.git"
+    local_path: "../AI_architecture_references/opencode"
+    last_known_commit: "16ddf5f559d8c52b23c6db7a046c3fda6a1d71f6"
+    last_known_commit_date: "2026-05-01T11:57:03Z"
+    last_checked: null
+    why_tracked: "multi-provider coding agent CLI와 config 패턴 참고"
+    import_targets: ["config/", "rules/common/", "docs/"]
+
+  - name: "paperclip"
+    url: "https://github.com/paperclipai/paperclip.git"
+    local_path: "../AI_architecture_references/paperclip"
+    last_known_commit: "42a299fb9d66fa0c136eae73bf166cad2c2c3e3e"
+    last_known_commit_date: "2026-05-01T08:32:04-05:00"
+    last_checked: null
+    why_tracked: "AI agent 제품 구조, evals, skills 패턴 참고"
+    import_targets: ["skills/", "docs/", "rules/common/"]

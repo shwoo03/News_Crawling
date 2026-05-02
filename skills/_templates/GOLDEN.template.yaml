@@ -1,0 +1,22 @@
+id: case-<NNN>
+skill: <skill-name>
+created_at: <YYYY-MM-DD>
+last_verified_at: <YYYY-MM-DD>
+staleness_check_due: <YYYY-MM-DD>   # +90일
+
+input: |
+  <사용자 입력 또는 트리거 컨텍스트>
+
+expected_properties:
+  - <출력이 가져야 할 속성 1>
+  - <출력이 가져야 할 속성 2>
+
+forbidden_patterns:
+  - <있으면 안 되는 것>
+
+evaluation:
+  judge_method: "llm-as-judge"      # 또는 "schema-check", "heuristic"
+  pass_threshold: 0.8
+
+notes: |
+  <왜 이 케이스가 중요한지>

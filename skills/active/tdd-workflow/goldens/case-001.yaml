@@ -1,0 +1,27 @@
+id: case-001
+skill: tdd-workflow
+created_at: 2026-05-02
+last_verified_at: 2026-05-02
+staleness_check_due: 2026-07-31
+
+input: |
+  사용자가 동작 변경이나 버그 수정을 요청한다.
+
+actual_output: |
+  Define expected behavior, find or create the narrowest validation, implement the smallest change, run the relevant check, and record evidence when it affects a decision.
+
+expected_properties:
+  - Define expected behavior
+  - narrowest validation
+  - implement the smallest change
+
+forbidden_patterns:
+  - skip validation
+
+evaluation:
+  judge_method: schema-check
+  pass_threshold: 0.8
+
+notes: |
+  Keeps implementation tied to a concrete validation path.
+

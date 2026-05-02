@@ -157,6 +157,16 @@ function extractByClass(
   html: string,
   className: string,
 ): string | undefined {
+  const directMatch = html.match(
+    new RegExp(
+      `<(span|p|div|h[1-6])\\b[^>]*class=(["'])[^"']*${escapeRegExp(className)}[^"']*\\2[^>]*>([\\s\\S]*?)<\\/\\1>`,
+      "iu",
+    ),
+  );
+  if (directMatch) {
+    return normalizeWhitespace(decodeHtmlEntities(stripTags(directMatch[3])));
+  }
+
   const matches = [...html.matchAll(/<(span|p|div|h[1-6])\b[^>]*class=(["'])([^"']*)\2[^>]*>([\s\S]*?)<\/\1>/giu)];
   for (const match of matches) {
     if (!hasClassToken(match[3], className)) {
@@ -167,6 +177,10 @@ function extractByClass(
   }
 
   return undefined;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function stripTags(value: string): string {

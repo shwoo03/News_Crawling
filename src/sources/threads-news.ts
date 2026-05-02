@@ -4,13 +4,25 @@ import { decodeHtmlEntities, normalizeWhitespace, stripHtmlToLines } from "../ut
 const THREADS_PROFILE_URL = "https://www.threads.com/@choi.openai";
 const THREAD_LIST_LIMIT = 10;
 
+type RenderedThreadsPage = {
+  html: string;
+  text: string;
+};
+
+type ThreadsAuthorBlock = {
+  startIndex: number;
+  endIndex: number;
+  text: string;
+  threadNumber?: number;
+};
+
 export class ThreadsNewsAdapter implements SourceAdapter {
   readonly id = "threads-news";
   readonly name = "Threads";
   readonly rssUrl = THREADS_PROFILE_URL;
 
   async listLatest(): Promise<SourceListItem[]> {
-    const html = await fetchRenderedHtml(this.rssUrl);
+    const { html } = await fetchRenderedPage(this.rssUrl);
     const items = parseThreadsList(html, this.rssUrl);
     if (items.length === 0) {
       throw new Error("No visible thread posts found");
@@ -20,8 +32,10 @@ export class ThreadsNewsAdapter implements SourceAdapter {
   }
 
   async fetchArticle(item: SourceListItem): Promise<ArticleContent> {
-    const html = await fetchRenderedHtml(item.url);
-    const bodyText = extractThreadsArticleBody(html, item);
+    const rendered = await fetchRenderedPage(item.url);
+    const authorHandle = extractAuthorHandle(item.url);
+    const bodyText = extractThreadsThreadBody(rendered.text, item, authorHandle)
+      || extractThreadsArticleBody(rendered.html, item);
 
     return {
       sourceId: this.id,
@@ -33,6 +47,94 @@ export class ThreadsNewsAdapter implements SourceAdapter {
       bodyText,
     };
   }
+}
+
+export function extractThreadsThreadBody(
+  renderedText: string,
+  item: Pick<SourceListItem, "title" | "publishedAt" | "category">,
+  authorHandle = "choi.openai",
+): string {
+  const lines = renderedText
+    .split(/\r?\n/u)
+    .map((line) => normalizeWhitespace(line))
+    .filter(Boolean);
+
+  const normalizedAuthor = normalizeHandle(authorHandle);
+  const blocks = collectAuthorBlocks(lines, item, normalizedAuthor);
+  if (blocks.length === 0) {
+    return "";
+  }
+
+  const firstNumberedIndex = blocks.findIndex((block) => block.threadNumber === 1);
+  if (firstNumberedIndex >= 0) {
+    return selectNumberedThreadBlocks(blocks, firstNumberedIndex);
+  }
+
+  return selectUnnumberedThreadBlocks(lines, blocks, item);
+}
+
+function collectAuthorBlocks(
+  lines: string[],
+  item: Pick<SourceListItem, "title" | "publishedAt" | "category">,
+  normalizedAuthor: string,
+): ThreadsAuthorBlock[] {
+  const blocks: ThreadsAuthorBlock[] = [];
+  let lastAuthorIndex = -1;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (normalizeHandle(lines[index]) !== normalizedAuthor) {
+      continue;
+    }
+
+    if (index === lastAuthorIndex) {
+      continue;
+    }
+    lastAuthorIndex = index;
+
+    const block = collectAuthorBlock(lines, index, item, normalizedAuthor);
+    if (!block) {
+      continue;
+    }
+
+    blocks.push(block);
+  }
+
+  return blocks;
+}
+
+function selectNumberedThreadBlocks(blocks: ThreadsAuthorBlock[], firstNumberedIndex: number): string {
+  const selected = blocks.slice(0, firstNumberedIndex);
+  let expectedNumber = 1;
+
+  for (const block of blocks.slice(firstNumberedIndex)) {
+    if (block.threadNumber !== expectedNumber) {
+      break;
+    }
+
+    selected.push(block);
+    expectedNumber += 1;
+  }
+
+  return selected.map((block) => block.text).join("\n\n").trim();
+}
+
+function selectUnnumberedThreadBlocks(
+  lines: string[],
+  blocks: ThreadsAuthorBlock[],
+  item: Pick<SourceListItem, "title" | "publishedAt" | "category">,
+): string {
+  const selected = [blocks[0]];
+  for (let index = 1; index < blocks.length; index += 1) {
+    const previous = blocks[index - 1];
+    const current = blocks[index];
+    if (hasThreadInterruption(lines, previous.endIndex + 1, current.startIndex, item)) {
+      break;
+    }
+
+    selected.push(current);
+  }
+
+  return selected.map((block) => block.text).join("\n\n").trim();
 }
 
 export function parseThreadsList(
@@ -282,6 +384,11 @@ function extractThreadPostLink(block: string): string | undefined {
   return undefined;
 }
 
+function extractAuthorHandle(url: string): string {
+  const match = new URL(url).pathname.match(/\/@([^/]+)\//u);
+  return match?.[1] ?? "choi.openai";
+}
+
 function isThreadPostHref(href: string): boolean {
   const normalized = href.trim().toLowerCase();
   return normalized.startsWith("/post/") || normalized.includes("/post/") || normalized.startsWith("/threads/");
@@ -417,6 +524,102 @@ function isThreadNoiseLine(
     });
 }
 
+function collectAuthorBlock(
+  lines: string[],
+  authorIndex: number,
+  item: Pick<SourceListItem, "title" | "publishedAt" | "category">,
+  normalizedAuthor: string,
+): ThreadsAuthorBlock | undefined {
+  let cursor = authorIndex + 1;
+  while (cursor < lines.length && isThreadMetaLine(lines[cursor])) {
+    cursor += 1;
+  }
+
+  const blockLines: string[] = [];
+  for (; cursor < lines.length; cursor += 1) {
+    const line = lines[cursor];
+    if (isThreadBlockBoundary(line) || normalizeHandle(line) === normalizedAuthor) {
+      break;
+    }
+
+    if (!isThreadUiLine(line, item)) {
+      blockLines.push(line);
+    }
+  }
+
+  const text = blockLines.join("\n").trim();
+  if (!text) {
+    return undefined;
+  }
+
+  return {
+    startIndex: authorIndex,
+    endIndex: cursor,
+    text,
+    threadNumber: parseThreadNumber(text),
+  };
+}
+
+function hasThreadInterruption(
+  lines: string[],
+  startIndex: number,
+  endIndex: number,
+  item: Pick<SourceListItem, "title" | "publishedAt" | "category">,
+): boolean {
+  for (const line of lines.slice(startIndex, endIndex)) {
+    if (isThreadMetaLine(line) || isThreadUiLine(line, item) || isThreadBlockBoundary(line)) {
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+function isThreadBlockBoundary(line: string): boolean {
+  return line === "Translate" || line === "번역 보기";
+}
+
+function isThreadMetaLine(line: string): boolean {
+  return Boolean(
+    line === "·"
+      || line === "Author"
+      || line === "작성자"
+      || line.match(/^\d+\s*(?:s|m|h|d|w)$/iu)
+      || line.match(/^\d+\s*(?:초|분|시간|일|주)$/u),
+  );
+}
+
+function isThreadUiLine(
+  line: string,
+  item: Pick<SourceListItem, "title" | "publishedAt" | "category">,
+): boolean {
+  const normalized = normalizeWhitespace(line).toLocaleLowerCase("en-US");
+  return Boolean(
+    isThreadNoiseLine(line, item)
+      || normalized === "thread"
+      || normalized === "threads"
+      || normalized === "translate"
+      || normalized === "번역 보기"
+      || normalized.match(/^\d[\d,.]*\s*(?:k|m)?\s+views?$/iu)
+      || normalized.match(/^[\d,.]+[k만천]?$|^\d+$/iu),
+  );
+}
+
+function parseThreadNumber(value: string): number | undefined {
+  const match = value.match(/^(\d{1,2})\s*\//u);
+  if (!match) {
+    return undefined;
+  }
+
+  return Number.parseInt(match[1], 10);
+}
+
+function normalizeHandle(value: string): string {
+  return value.replace(/^@/u, "").toLocaleLowerCase("en-US");
+}
+
 function dedupeByUrl(items: SourceListItem[]): SourceListItem[] {
   const seen = new Set<string>();
   const unique: SourceListItem[] = [];
@@ -441,7 +644,7 @@ function matchFirst(html: string, pattern: RegExp): RegExpMatchArray | undefined
   return match ?? undefined;
 }
 
-async function fetchRenderedHtml(url: string): Promise<string> {
+async function fetchRenderedPage(url: string): Promise<RenderedThreadsPage> {
   let browser: { close: () => Promise<void> } | undefined;
   let page:
     | {
@@ -450,6 +653,7 @@ async function fetchRenderedHtml(url: string): Promise<string> {
       waitForLoadState: (state: string, options: { timeout: number }) => Promise<void>;
       waitForTimeout: (ms: number) => Promise<void>;
       content: () => Promise<string>;
+      evaluate: <T>(fn: () => T) => Promise<T>;
     }
     | undefined;
 
@@ -475,7 +679,11 @@ async function fetchRenderedHtml(url: string): Promise<string> {
       .catch(() => undefined);
 
     await page.waitForTimeout(1_200).catch(() => undefined);
-    return await page.content();
+    const [html, text] = await Promise.all([
+      page.content(),
+      page.evaluate(() => document.body?.innerText ?? "").catch(() => ""),
+    ]);
+    return { html, text };
   } finally {
     if (page) {
       await page.close().catch(() => undefined);

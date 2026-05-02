@@ -1,0 +1,28 @@
+id: case-001
+skill: search-first
+created_at: 2026-05-02
+last_verified_at: 2026-05-02
+staleness_check_due: 2026-07-31
+
+input: |
+  Find how this repository handles runtime ledgers before changing code.
+
+actual_output: |
+  Search the local tree first with rg, inspect the matching scripts and docs,
+  then make the smallest change consistent with existing runtime ledger patterns.
+
+expected_properties:
+  - Search the local tree first with rg
+  - inspect the matching scripts and docs
+  - consistent with existing runtime ledger patterns
+
+forbidden_patterns:
+  - "start from scratch"
+  - "ignore existing files"
+
+evaluation:
+  judge_method: "schema-check"
+  pass_threshold: 1.0
+
+notes: |
+  Ensures repository-native discovery stays ahead of new implementation.

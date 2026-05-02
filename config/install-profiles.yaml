@@ -1,0 +1,23 @@
+version: 1
+default_profile: full-canonical
+
+profiles:
+  minimal:
+    description: "Smallest usable project shell with core rules and verification."
+    components: [core, validation, runtime]
+
+  webapp:
+    description: "Web application starting point with frontend/backend rule placeholders."
+    components: [core, validation, runtime, reference, wiki, webapp]
+
+  cli:
+    description: "CLI/library starting point with packaging and distribution guidance."
+    components: [core, validation, runtime, reference, wiki, cli]
+
+  research-heavy:
+    description: "Reference-first projects that will compare and absorb external systems."
+    components: [core, validation, runtime, reference, wiki, research]
+
+  full-canonical:
+    description: "Full reusable AI architecture skeleton. This preserves current behavior."
+    components: [core, validation, runtime, reference, wiki, skills, agents, docs, bootstrap]

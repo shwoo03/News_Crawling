@@ -2,3 +2,12 @@
 data/*.sqlite
 !data/news-crawling.sqlite
 node_modules/
+# AI harness generated/local artifacts
+.mcp.json
+CLAUDE.md
+.codex/
+.claude/
+# Secrets
+.env
+*.key
+*.pem

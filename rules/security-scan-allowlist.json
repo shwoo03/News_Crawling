@@ -1,0 +1,182 @@
+[
+  {
+    "rule": "silent_error_suppression",
+    "path": ".claude/skills/brainstorming/scripts/start-server.sh",
+    "line": 96,
+    "reason": "helper cleanup probes intentionally ignore best-effort kill failures"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".claude/skills/brainstorming/scripts/start-server.sh",
+    "line": 105,
+    "reason": "helper ownership probe intentionally ignores missing process metadata"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".claude/skills/brainstorming/scripts/start-server.sh",
+    "line": 121,
+    "reason": "background disown is best-effort for portable shell behavior"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".claude/skills/brainstorming/scripts/start-server.sh",
+    "line": 126,
+    "reason": "startup log polling intentionally ignores transient missing log files"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".claude/skills/brainstorming/scripts/start-server.sh",
+    "line": 130,
+    "reason": "process liveness probe intentionally suppresses kill probe output"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".claude/skills/brainstorming/scripts/stop-server.sh",
+    "line": 23,
+    "reason": "server stop is idempotent and intentionally ignores already-exited process"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".claude/skills/brainstorming/scripts/stop-server.sh",
+    "line": 27,
+    "reason": "process liveness probe intentionally suppresses kill probe output"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".claude/skills/brainstorming/scripts/stop-server.sh",
+    "line": 34,
+    "reason": "process liveness probe intentionally suppresses kill probe output"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".claude/skills/brainstorming/scripts/stop-server.sh",
+    "line": 35,
+    "reason": "force kill fallback is idempotent and intentionally ignores already-exited process"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".claude/skills/brainstorming/scripts/stop-server.sh",
+    "line": 41,
+    "reason": "final process liveness probe intentionally suppresses kill probe output"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".codex/skills/brainstorming/scripts/start-server.sh",
+    "line": 96,
+    "reason": "generated duplicate of approved helper cleanup probe"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".codex/skills/brainstorming/scripts/start-server.sh",
+    "line": 105,
+    "reason": "generated duplicate of approved helper ownership probe"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".codex/skills/brainstorming/scripts/start-server.sh",
+    "line": 121,
+    "reason": "generated duplicate of approved background disown fallback"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".codex/skills/brainstorming/scripts/start-server.sh",
+    "line": 126,
+    "reason": "generated duplicate of approved startup log polling"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".codex/skills/brainstorming/scripts/start-server.sh",
+    "line": 130,
+    "reason": "generated duplicate of approved process liveness probe"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".codex/skills/brainstorming/scripts/stop-server.sh",
+    "line": 23,
+    "reason": "generated duplicate of approved idempotent server stop"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".codex/skills/brainstorming/scripts/stop-server.sh",
+    "line": 27,
+    "reason": "generated duplicate of approved process liveness probe"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".codex/skills/brainstorming/scripts/stop-server.sh",
+    "line": 34,
+    "reason": "generated duplicate of approved process liveness probe"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".codex/skills/brainstorming/scripts/stop-server.sh",
+    "line": 35,
+    "reason": "generated duplicate of approved force kill fallback"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": ".codex/skills/brainstorming/scripts/stop-server.sh",
+    "line": 41,
+    "reason": "generated duplicate of approved final liveness probe"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": "skills/active/brainstorming/scripts/start-server.sh",
+    "line": 96,
+    "reason": "canonical helper cleanup probes intentionally ignore best-effort kill failures"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": "skills/active/brainstorming/scripts/start-server.sh",
+    "line": 105,
+    "reason": "canonical helper ownership probe intentionally ignores missing process metadata"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": "skills/active/brainstorming/scripts/start-server.sh",
+    "line": 121,
+    "reason": "canonical background disown is best-effort for portable shell behavior"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": "skills/active/brainstorming/scripts/start-server.sh",
+    "line": 126,
+    "reason": "canonical startup log polling intentionally ignores transient missing log files"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": "skills/active/brainstorming/scripts/start-server.sh",
+    "line": 130,
+    "reason": "canonical process liveness probe intentionally suppresses kill probe output"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": "skills/active/brainstorming/scripts/stop-server.sh",
+    "line": 23,
+    "reason": "canonical server stop is idempotent and intentionally ignores already-exited process"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": "skills/active/brainstorming/scripts/stop-server.sh",
+    "line": 27,
+    "reason": "canonical process liveness probe intentionally suppresses kill probe output"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": "skills/active/brainstorming/scripts/stop-server.sh",
+    "line": 34,
+    "reason": "canonical process liveness probe intentionally suppresses kill probe output"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": "skills/active/brainstorming/scripts/stop-server.sh",
+    "line": 35,
+    "reason": "canonical force kill fallback is idempotent and intentionally ignores already-exited process"
+  },
+  {
+    "rule": "silent_error_suppression",
+    "path": "skills/active/brainstorming/scripts/stop-server.sh",
+    "line": 41,
+    "reason": "canonical final process liveness probe intentionally suppresses kill probe output"
+  }
+]

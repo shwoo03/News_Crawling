@@ -1,0 +1,28 @@
+id: case-001
+skill: verification-loop
+created_at: 2026-05-02
+last_verified_at: 2026-05-02
+staleness_check_due: 2026-07-31
+
+input: |
+  A coding task is complete. Close it out with the repository verification loop.
+
+actual_output: |
+  The closeout runs the configured checks, reports failures before summary claims,
+  and records any residual risk instead of marking unverified work as done.
+
+expected_properties:
+  - runs the configured checks
+  - reports failures before summary claims
+  - records any residual risk
+
+forbidden_patterns:
+  - "skip verification"
+  - "assume it works"
+
+evaluation:
+  judge_method: "schema-check"
+  pass_threshold: 1.0
+
+notes: |
+  Guards the core verify-first behavior used during task completion.

@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""Optional PreToolUse guard that blocks risky writes and dangerous commands.
+
+This file ships with the `.example` extension, so it is inert by default.
+To activate, copy or rename it to `pre-tool-use-guard.py` and wire it into
+your harness's PreToolUse hook (e.g. `.claude/settings.local.json` hooks block).
+
+The guard reads a JSON payload on stdin describing the pending tool call and
+decides whether to allow it:
+
+- exit 0: allow.
+- exit 2: block (the harness should surface the stderr message to the user).
+
+Checks are intentionally conservative examples; tune or extend for the project.
+Each check is regex-based and reads only the stdin JSON. No filesystem writes.
+
+Typed approval policy:
+- default action: ask
+- valid user decisions: allow_once, allow_session, deny
+- timeout action: deny (fail closed)
+- approval scopes should be recorded as session/project, never as hidden global state
+- every non-default approval decision should be mirrored into runtime/activity-log.jsonl
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+from pathlib import Path
+from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from lib_path_safety import evaluate_path  # noqa: E402
+
+
+SECRET_PATTERNS = [
+    # Common cloud / VCS tokens. Extend as needed.
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),                 # AWS access key id
+    re.compile(r"\bASIA[0-9A-Z]{16}\b"),                 # AWS temp key id
+    re.compile(r"\bghp_[A-Za-z0-9]{36,}\b"),             # GitHub PAT
+    re.compile(r"\bgithub_pat_[A-Za-z0-9_]{40,}\b"),     # GitHub fine-grained PAT
+    re.compile(r"\bsk-[A-Za-z0-9]{32,}\b"),              # OpenAI-style keys
+    re.compile(r"\bxox[bpoas]-[A-Za-z0-9-]{10,}\b"),     # Slack tokens
+    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+]
+
+DANGEROUS_COMMANDS = [
+    re.compile(r"\brm\s+-rf\s+/(?:\s|$)"),               # rm -rf /
+    re.compile(r"\brm\s+-rf\s+~(?:\s|$)"),               # rm -rf ~
+    re.compile(r":\(\)\s*\{.*:\|:.*&.*\}"),              # classic fork bomb
+    re.compile(r"\bmkfs\.\w+\s+/dev/"),                  # filesystem wipe
+    re.compile(r"\bdd\s+if=.*of=/dev/(?:sd|nvme|hd)"),   # raw disk write
+    re.compile(r"\bchmod\s+-R\s+777\s+/"),               # world-writable root
+]
+
+
+def read_stdin_json() -> dict[str, Any]:
+    if sys.stdin.isatty():
+        return {}
+    raw = sys.stdin.buffer.read().decode("utf-8-sig").strip()
+    if not raw:
+        return {}
+    value = json.loads(raw)
+    if not isinstance(value, dict):
+        raise ValueError("stdin JSON must be an object")
+    return value
+
+
+def flatten_text(value: Any) -> str:
+    """Collect all string values from nested dict/list into one haystack."""
+    parts: list[str] = []
+    stack: list[Any] = [value]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, str):
+            parts.append(current)
+        elif isinstance(current, dict):
+            stack.extend(current.values())
+        elif isinstance(current, list):
+            stack.extend(current)
+    return "\n".join(parts)
+
+
+def scan_paths(payload: dict[str, Any]) -> list[str]:
+    """Best-effort path extraction: check common field names."""
+    found: list[str] = []
+    for key in ("file_path", "path", "target", "destination", "file", "output"):
+        value = payload.get(key)
+        if isinstance(value, str):
+            found.append(value)
+    tool_input = payload.get("tool_input") or payload.get("input")
+    if isinstance(tool_input, dict):
+        found.extend(scan_paths(tool_input))
+    return found
+
+
+def repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def check_secrets(haystack: str) -> str | None:
+    for pattern in SECRET_PATTERNS:
+        if pattern.search(haystack):
+            return f"blocked: payload matches secret pattern /{pattern.pattern}/"
+    return None
+
+
+def check_dangerous_commands(haystack: str) -> str | None:
+    for pattern in DANGEROUS_COMMANDS:
+        if pattern.search(haystack):
+            return f"blocked: payload matches dangerous command /{pattern.pattern}/"
+    return None
+
+
+def check_protected_paths(paths: list[str]) -> str | None:
+    for path in paths:
+        result = evaluate_path(repo_root(), path, "write")
+        if result.decision == "deny":
+            return f"blocked: write target '{path}' is protected ({result.reason})"
+    return None
+
+
+def main() -> int:
+    try:
+        payload = read_stdin_json()
+    except (json.JSONDecodeError, ValueError) as exc:
+        print(f"pre-tool-use-guard: invalid input: {exc}", file=sys.stderr)
+        return 1
+
+    haystack = flatten_text(payload)
+    for check in (
+        lambda: check_secrets(haystack),
+        lambda: check_dangerous_commands(haystack),
+        lambda: check_protected_paths(scan_paths(payload)),
+    ):
+        reason = check()
+        if reason:
+            print(f"pre-tool-use-guard: {reason}", file=sys.stderr)
+            return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

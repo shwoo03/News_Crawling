@@ -21,7 +21,7 @@ export function getConfig(): AppConfig {
   }
 
   const groqModels = resolveGroqModels();
-  const summaryMaxCharacters = parsePositiveInteger(process.env.SUMMARY_MAX_CHARACTERS, 800);
+  const summaryMaxCharacters = parsePositiveInteger(process.env.SUMMARY_MAX_CHARACTERS, 1800);
   const topTestArticleCount = parsePositiveInteger(process.env.TOP_TEST_ARTICLE_COUNT, 2);
   const topTestReferenceUrl = process.env.TOP_TEST_REFERENCE_URL?.trim() || undefined;
   const pollIntervalMinutes = parsePositiveInteger(process.env.POLL_INTERVAL_MINUTES, 10);

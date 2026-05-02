@@ -1,0 +1,29 @@
+{
+  "schema_version": "ai-architecture.schema.v1",
+  "name": "install-state",
+  "type": "object",
+  "required": [
+    "ts",
+    "event",
+    "project",
+    "skeleton_version",
+    "source_commit",
+    "requested_profile",
+    "selected_components",
+    "generated_paths",
+    "preserved_paths",
+    "validation_status"
+  ],
+  "properties": {
+    "ts": {"type": "string"},
+    "event": {"type": "string"},
+    "project": {"type": "string"},
+    "skeleton_version": {"type": ["string", "null"]},
+    "source_commit": {"type": ["string", "null"]},
+    "requested_profile": {"type": "string"},
+    "selected_components": {"type": "array", "items": {"type": "string"}},
+    "generated_paths": {"type": "array", "items": {"type": "string"}},
+    "preserved_paths": {"type": "array", "items": {"type": "string"}},
+    "validation_status": {"type": "string", "enum": ["unverified", "verified", "failed"]}
+  }
+}

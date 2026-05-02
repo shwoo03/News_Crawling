@@ -10,6 +10,34 @@ import { GroqSummarizer } from "../src/services/summarizer.ts";
 import { extractArticleBody, parseRssItems } from "../src/sources/openai-news.ts";
 import { SqliteStateStore } from "../src/storage/sqlite.ts";
 
+function briefingContent(overrides: Partial<{
+  lead: string;
+  summary: string[];
+  highlights: string[];
+  importance: string[];
+}> = {}): string {
+  return JSON.stringify({
+    lead: overrides.lead ?? "오픈AI가 새로운 계정 보안 기능을 공개했습니다.",
+    summary: overrides.summary ?? [
+      "새 기능은 계정 보호를 강화하고 조직 관리자가 위험을 더 빨리 파악하게 돕습니다.",
+      "사용자는 추가 인증과 관리 기능을 통해 민감한 작업을 더 안전하게 처리할 수 있습니다.",
+      "오픈AI는 기업 환경에서 AI 사용이 늘어나는 흐름에 맞춰 보안 운영 기능을 확장했습니다.",
+    ],
+    highlights: overrides.highlights ?? [
+      "고급 계정 보안 기능 공개",
+      "조직 관리자용 위험 관리 강화",
+      "민감한 작업 보호 절차 추가",
+      "기업 사용자를 위한 보안 운영 개선",
+      "업무용 AI 계정 관리 기준 제시",
+    ],
+    importance: overrides.importance ?? [
+      "AI 도구가 업무 핵심 시스템이 되면서 계정 보안이 운영 리스크와 직접 연결됩니다.",
+      "관리 기능 강화는 기업의 AI 도입 장벽을 낮추는 실무 요건입니다.",
+      "보안 통제가 명확해질수록 조직은 AI 도구를 더 넓은 업무에 적용할 수 있습니다.",
+    ],
+  });
+}
+
 test("parseRssItems reads RSS metadata and normalizes URLs", () => {
   const fixture = readFileSync(join(import.meta.dirname, "fixtures", "openai-news-rss.xml"), "utf8");
   const items = parseRssItems(fixture);
@@ -38,7 +66,9 @@ test("GroqSummarizer retries when the first summary exceeds the configured limit
   let calls = 0;
   const fetchStub: typeof fetch = async () => {
     calls += 1;
-    const content = calls === 1 ? "a".repeat(401) : "OpenAI의 새로운 요약은 핵심만 간결하게 정리합니다.";
+    const content = calls === 1
+      ? briefingContent({ lead: "a".repeat(651) })
+      : briefingContent();
 
     return new Response(
       JSON.stringify({
@@ -59,7 +89,7 @@ test("GroqSummarizer retries when the first summary exceeds the configured limit
     );
   };
 
-  const summarizer = new GroqSummarizer("test-key", ["test-model"], 400, fetchStub);
+  const summarizer = new GroqSummarizer("test-key", ["test-model"], 650, fetchStub);
   const summary = await summarizer.summarize({
     title: "테스트 제목",
     url: "https://example.com/article",
@@ -67,16 +97,13 @@ test("GroqSummarizer retries when the first summary exceeds the configured limit
   });
 
   assert.equal(calls, 2);
-  assert.ok(summary.charCount <= 400);
+  assert.ok(summary.charCount <= 650);
+  assert.equal(summary.briefing.highlights.length, 5);
 });
 
-test("GroqSummarizer formats long single-line summaries into readable lines", async () => {
+test("GroqSummarizer formats structured news briefing output", async () => {
   const fetchStub: typeof fetch = async () => {
-    const content = [
-      "최근 공개된 기사에서는 AI 계정 관리 서비스를 은행 고객에게 적용해 응답 속도가 0.5초로 개선되었고 만족도도 크게 향상되었다.",
-      "복잡한 내부 규칙을 실시간으로 준수하면서 신뢰성 테스트를 거쳐 점진적 확장 전략을 사용했다.",
-      "또한 초기에는 소규모 트래픽에서 시작해 확장 중이다.",
-    ].join(" ");
+    const content = briefingContent();
 
     return new Response(
       JSON.stringify({
@@ -97,16 +124,19 @@ test("GroqSummarizer formats long single-line summaries into readable lines", as
     );
   };
 
-  const summarizer = new GroqSummarizer("test-key", ["test-model"], 400, fetchStub);
+  const summarizer = new GroqSummarizer("test-key", ["test-model"], 650, fetchStub);
   const summary = await summarizer.summarize({
     title: "테스트 기사 제목",
     url: "https://example.com/article",
     bodyText: "본문 텍스트",
   });
 
-  const containsLineBreak = summary.summaryKo.includes("\n");
-  assert.equal(containsLineBreak, true);
-  assert.ok(summary.charCount <= 400);
+  assert.match(summary.summaryKo, /한눈에 보기/u);
+  assert.match(summary.summaryKo, /왜 중요할까/u);
+  assert.equal(summary.briefing.summary.length, 3);
+  assert.equal(summary.briefing.highlights.length, 5);
+  assert.equal(summary.briefing.importance.length, 3);
+  assert.ok(summary.charCount <= 650);
 });
 
 test("GroqSummarizer falls back to the next model after rate limits", async () => {
@@ -129,7 +159,9 @@ test("GroqSummarizer falls back to the next model after rate limits", async () =
         choices: [
           {
             message: {
-              content: "백업 모델이 동일 기사 핵심 내용을 800자 이하로 안정적으로 요약했습니다.",
+              content: briefingContent({
+                lead: "백업 모델이 동일 기사 핵심 내용을 안정적으로 요약했습니다.",
+              }),
             },
           },
         ],
@@ -162,6 +194,67 @@ test("GroqSummarizer falls back to the next model after rate limits", async () =
     "openai/gpt-oss-120b",
     "llama-3.3-70b-versatile",
   ]);
+});
+
+test("DiscordNotifier renders Korean briefing embed fields", async () => {
+  let payload: {
+    embeds?: Array<{
+      title?: string;
+      description?: string;
+      fields?: Array<{ name?: string; value?: string }>;
+    }>;
+  } | undefined;
+
+  const notifier = new DiscordNotifier("https://discord.com/api/webhooks/test", async (_input, init) => {
+    payload = JSON.parse(String(init?.body));
+    return new Response("", { status: 200 });
+  });
+
+  await notifier.send(
+    {
+      sourceId: "threads-news",
+      sourceName: "Threads",
+      title: "무신사 AI 네이티브 워크플로우",
+      url: "https://www.threads.com/@choi.openai/post/example/",
+      publishedAt: "2026-04-30T13:24:00.000Z",
+      category: "Posts",
+      bodyText: "본문",
+    },
+    {
+      summaryKo: "요약",
+      charCount: 2,
+      briefing: {
+        lead: "오픈AI와 무신사가 AI 워크플로우 사례를 공유했습니다.",
+        summary: [
+          "Codex 도입 후 개발 방식이 설계와 검토 중심으로 바뀌었습니다.",
+          "AI 활용 역량은 채용과 업무 방식의 핵심 기준으로 제시됐습니다.",
+          "무신사는 패션 커머스에서 AI가 고객 접점과 운영 방식을 바꿀 수 있다고 설명했습니다.",
+        ],
+        highlights: [
+          "오픈AI, 무신사 행사 참여",
+          "Codex 기반 개발 워크플로우 소개",
+          "AI 활용 능력 평가 강조",
+          "패션 커머스 AI 전환 언급",
+          "개발자의 역할 변화 사례 제시",
+        ],
+        importance: [
+          "AI가 고객 인터페이스가 되면 커머스 경쟁 방식이 바뀝니다.",
+          "특화 AI 역량은 패션 플랫폼의 차별화 요소가 됩니다.",
+          "개발 조직은 코드 작성보다 설계와 검토 역량을 더 크게 요구받게 됩니다.",
+        ],
+      },
+    },
+  );
+
+  const embed = payload?.embeds?.[0];
+  assert.equal(embed?.title, "Threads 뉴스 브리핑");
+  assert.match(embed?.description ?? "", /오픈AI와 무신사/u);
+  assert.deepEqual(
+    embed?.fields?.map((field) => field.name),
+    ["한눈에 보기", "왜 중요할까", "출처", "발행 시각"],
+  );
+  assert.match(embed?.fields?.[0]?.value ?? "", /• 오픈AI/u);
+  assert.equal(embed?.fields?.[2]?.value, "Threads");
 });
 
 test("SqliteStateStore prevents duplicate deliveries by remembering seen URLs", () => {

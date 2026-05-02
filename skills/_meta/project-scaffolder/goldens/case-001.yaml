@@ -1,0 +1,27 @@
+id: case-001
+skill: project-scaffolder
+created_at: 2026-05-02
+last_verified_at: 2026-05-02
+staleness_check_due: 2026-07-31
+
+input: |
+  사용자가 새 프로젝트를 시작해 달라고 한다.
+
+actual_output: |
+  Collect project metadata, fill AGENTS.md variables, configure roles.yaml models, ask about previous project imports, offer reference research, create the first plan, and run verify.
+
+expected_properties:
+  - Collect project metadata
+  - configure roles.yaml
+  - create the first plan
+
+forbidden_patterns:
+  - skip verify
+
+evaluation:
+  judge_method: schema-check
+  pass_threshold: 0.8
+
+notes: |
+  Guards the new-project bootstrap sequence.
+

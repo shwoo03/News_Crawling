@@ -1,0 +1,65 @@
+session:
+  max_minutes: 30
+  max_context_pct: 50
+
+confirmation_required:
+  - git_push
+  - file_delete
+  - dir_delete
+  - dependency_add
+  - dependency_remove
+  - external_api_call
+  - mcp_server_add
+  - mcp_server_remove
+  - skill_promote
+  - skill_demote
+
+permissions:
+  default_action: ask              # ask | allow | deny
+  timeout_action: deny             # 승인 응답 시간 초과 시 fail closed
+  decision_values: [allow_once, allow_session, deny]
+  audit_log: runtime/activity-log.jsonl
+  rules:
+    - id: shell_wildcard
+      match: "shell:*"
+      action: deny
+      reason: "wildcard shell execution is never auto-allowed"
+    - id: confirmation_required_actions
+      match: "confirmation_required:*"
+      action: ask
+      allowed_decisions: [allow_once, deny]
+      reason: "dangerous actions require explicit user approval"
+
+cost:
+  daily_limit_usd: 50
+  block_when_exceeded: true
+  warn_at_pct: 80
+
+skill_lifecycle:
+  promote_min_uses: 20
+  promote_min_success_rate: 0.85
+  demote_threshold: 0.70
+  scope: "per_project"          # v1: 프로젝트 안에서만 카운트
+  auto_promote: false           # v1: 비활성
+  auto_demote: false            # v1: 비활성 (제안만)
+
+research:
+  candidate_count: 10
+  filter_max_commit_age_days: 180
+  finalist_count: 3
+  malware_check_required: true
+
+replan:
+  max_per_task: 3
+  on_exceed: "stop_and_report"
+
+verify:
+  stages: [check, lint, unit, smoke, integration]
+  fail_action: "revert_and_report"
+
+golden_cases:
+  per_skill_min: 0              # 강제 X
+  per_skill_recommended: 1
+  per_skill_recommended_max: 3
+  staleness_days: 90
+  judge_model: "{{가벼운_모델_권장}}"

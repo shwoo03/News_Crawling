@@ -1,0 +1,42 @@
+# canonical 소스 → 하네스별 출력 경로 매핑
+# scripts/convert.sh가 이 파일을 읽고 변환 수행
+
+skeleton_version: "v1.2.0"
+
+mappings:
+  skills:
+    source: "skills/active/"
+    targets:
+      codex: ".codex/skills/"
+      claude: ".claude/skills/"
+
+  agents:
+    source: "agents/"
+    targets:
+      codex: ".codex/agents/"
+      claude: ".claude/agents/"
+
+  rules:
+    source: "rules/"
+    targets:
+      codex: ".codex/rules/"
+      claude: ".claude/rules/"
+
+  mcp:
+    source: "mcp/servers.yaml"
+    targets:
+      codex: ".codex/mcp.json"      # codex 형식으로 변환
+      claude: ".mcp.json"           # Claude Code 형식
+
+  agents_md:
+    source: "AGENTS.md"
+    targets:
+      codex: "AGENTS.md"            # codex가 읽음
+      claude: "CLAUDE.md"           # 심볼릭 링크 또는 복사
+
+parity_check:
+  enabled: true
+  fields_to_compare:
+    - skill_count
+    - agent_count
+    - mcp_server_count

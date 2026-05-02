@@ -1,0 +1,79 @@
+{
+  "schema_version": "ai-architecture.session-snapshot.v1",
+  "ts": "2026-05-02T13:31:57Z",
+  "project": "News_Crawling",
+  "handoff_path": "runtime/state/session-handoff.md",
+  "handoff_exists": true,
+  "activity_log_last": {
+    "ts": "2026-05-02T13:27:44Z",
+    "phase": "session",
+    "action": "handoff_saved",
+    "project": "News_Crawling",
+    "goal_lineage": [
+      "News_Crawling",
+      "Threads full thread briefing"
+    ],
+    "tool_call": {
+      "tool": "codex",
+      "status": "success",
+      "normalized_status": "success",
+      "failure_type": "",
+      "empty_output": false,
+      "duration_ms": null,
+      "summary": "Threads full-thread extraction implemented with numbered and unnumbered author-run strategies; Docker tests, extraction check, image rebuild, and webhook send completed."
+    },
+    "data": {
+      "plan": "plans/done/0003-threads-full-thread-briefing.md",
+      "node_tests": "17 passed, 0 failed",
+      "threads_body_length": 2859,
+      "threads_has_thread_1": true,
+      "threads_has_thread_2": true,
+      "threads_has_thread_7": true
+    }
+  },
+  "completion_evidence_last": {
+    "ts": "2026-05-02T06:22:30Z",
+    "goal": "AI_architecture stabilization and reference absorption",
+    "changed_paths": [
+      "scripts",
+      "tests",
+      "docs",
+      "schemas",
+      "hooks",
+      ".github/workflows/ci.yml"
+    ],
+    "validations": [
+      {
+        "name": "targeted-regression",
+        "command": "python3 -m unittest selected operational tests",
+        "status": "OK",
+        "detail": "6 targeted tests passed"
+      },
+      {
+        "name": "verify-skeleton",
+        "command": "python3 scripts/verify-skeleton.py --root .",
+        "status": "OK",
+        "detail": "skeleton OK"
+      },
+      {
+        "name": "verify-parity",
+        "command": "python3 scripts/verify-parity.py --root .",
+        "status": "OK",
+        "detail": "canonical sources match generated artifacts"
+      },
+      {
+        "name": "schema-check",
+        "command": "python3 scripts/schema-check.py --format json",
+        "status": "OK",
+        "detail": "schema-backed contracts passed"
+      }
+    ],
+    "outcome": "genuine_success",
+    "residual_risk": "",
+    "next_action": "",
+    "notes": "",
+    "agent": "codex",
+    "artifacts": []
+  },
+  "open_blockers": []
+}

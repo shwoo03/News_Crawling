@@ -1,0 +1,12 @@
+{
+  "schema_version": "ai-architecture.schema.v1",
+  "name": "plugin-manifest",
+  "type": "object",
+  "required": ["name", "version", "description", "entrypoint"],
+  "properties": {
+    "name": {"type": "string"},
+    "version": {"type": "string", "pattern": "semver"},
+    "description": {"type": "string"},
+    "entrypoint": {"type": "string", "path": "relative"}
+  }
+}

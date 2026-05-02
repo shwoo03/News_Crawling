@@ -1,0 +1,42 @@
+version: 1
+
+public_team:
+  planner-researcher:
+    mission: "Translate natural-language goals into mode, reference-first research, and approved scope."
+    write_policy: read_only
+    default_scope: ["AGENTS.md", "scripts/agent-flow.py", "scripts/catalog.yaml", "research/", "runtime/proposals/"]
+  implementer:
+    mission: "Implement approved changes inside the agreed scope."
+    write_policy: manual_work_required
+    default_scope: ["."]
+  validator:
+    mission: "Independently verify checks, ledgers, completion evidence, and residual risk."
+    write_policy: read_only
+    default_scope: ["scripts/", "tests/", "runtime/", "state/"]
+
+specialists:
+  build-error-resolver:
+    mission: "Minimal build, typecheck, and test failure fixes after implementation."
+    write_policy: manual_work_required
+    default_scope: ["scripts/", "tests/"]
+    recommended_checks: ["python -m unittest discover -s tests -v"]
+  security-reviewer:
+    mission: "Review security-scan, permission, secret, MCP, and copied-source findings."
+    write_policy: read_only
+    default_scope: ["config/", "mcp/", "rules/", "scripts/security-scan.py", "scripts/permission-evaluate.py"]
+    recommended_checks: ["python scripts/security-scan.py --root . --include-runtime --strict", "python scripts/mcp-audit.py --root . check --format json"]
+  reference-reviewer:
+    mission: "Compare reference candidates and produce source-backed absorption notes."
+    write_policy: read_only
+    default_scope: ["research/", "references.yaml", "runtime/proposals/reference-adoption/", "runtime/reference-tasks.jsonl"]
+    recommended_checks: ["python scripts/validate-reference-candidates.py --root .", "python scripts/validate-reference-proposals.py --root ."]
+  docs-sync-auditor:
+    mission: "Check docs, catalog, codemap, wiki, and workflow drift."
+    write_policy: read_only
+    default_scope: ["docs/", "knowledge/", "scripts/catalog.yaml"]
+    recommended_checks: ["python scripts/generate-codemaps.py --root . --format json", "python scripts/wiki-lint.py --root . --format json"]
+  closeout-validator:
+    mission: "Independently inspect verify, quality-gate, session snapshot, and completion evidence."
+    write_policy: read_only
+    default_scope: ["scripts/", "tests/", "runtime/", "state/"]
+    recommended_checks: ["python scripts/verify.py --root .", "python scripts/quality-gate.py --root . --format json"]

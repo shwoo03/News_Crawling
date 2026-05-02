@@ -1,0 +1,226 @@
+# Agent-facing script catalog.
+# Public commands are the only scripts agents should call by default.
+# Internal tools are invoked by agent-flow or during focused debugging.
+
+version: 1
+
+public:
+  - path: scripts/agent-flow.py
+    purpose: Natural-language routing and standard start/research/decide/closeout entrypoint.
+
+routing:
+  modes:
+    decide:
+      reason: 열린 review queue 항목이 있어 새 작업보다 사용자 결정 동기화가 우선입니다.
+      confidence: high
+      requires_confirmation: true
+      write_policy: read_only
+      signal: open_review_queue
+      next_command: python3 scripts/agent-flow.py decide --proposal <proposal-path> --decision accepted|rejected|deferred --by <name> --format json
+      suggested_questions:
+        - 이 proposal은 accepted, rejected, deferred 중 무엇으로 기록할까요?
+        - 그 결정을 내리는 핵심 근거는 무엇인가요?
+        - 승인한다면 실제 반영 범위는 어디까지인가요?
+
+    research:
+      goal_pattern: (오픈소스|open\s*source|oss|reference|레퍼런스|레퍼런스들\s*참고|참고|비슷한|기존\s*서비스|클론|clone|분석|찾아|찾고|새\s*프로젝트|프로젝트\s*시작|ECC|everything-claude-code|opencode|benchmark|비교|성숙한\s*레퍼런스)
+      reason: 자연어 요청에 새 프로젝트, 오픈소스, 레퍼런스, 클론, 분석 의도가 포함되어 reference-first 흐름이 적합합니다.
+      confidence: high
+      requires_confirmation: false
+      write_policy: read_only
+      signal: goal_mentions_reference
+      next_command: python3 scripts/agent-flow.py research --auto --goal "{goal}" --format json
+      suggested_questions:
+        - 프로젝트 타입은 webapp, cli, lib, api, data-pipeline 중 무엇에 가깝나요?
+        - 우선 참고해야 할 레퍼런스나 경쟁 서비스가 있나요?
+        - MVP가 성공했다고 볼 수 있는 최소 기준은 무엇인가요?
+
+    closeout:
+      goal_pattern: (검증|마무리|완료|종료|closeout|quality\s*gate|verify)
+      reason: 자연어 요청이 검증, 완료, 마무리 흐름을 요구합니다.
+      confidence: high
+      requires_confirmation: true
+      write_policy: write_with_confirmation
+      signal: goal_mentions_closeout
+      next_command: python3 scripts/agent-flow.py closeout --goal "{goal}" --changed-path . --format json
+      suggested_questions:
+        - 완료 증거에 기록할 목표명은 무엇인가요?
+        - 이번 작업에서 바뀐 주요 경로는 어디인가요?
+        - 검증에서 반드시 확인해야 할 기대 결과는 무엇인가요?
+
+    maintain:
+      goal_pattern: (스켈레톤|뼈대|하네스|운영\s*시스템|시스템\s*개선|agent-flow|agent\s*flow|시스템\s*구조|구조\s*개선|AI_architecture|catalog|카탈로그)
+      reason: 자연어 요청이 스켈레톤이나 운영 시스템 자체 개선에 가깝습니다.
+      confidence: medium
+      requires_confirmation: false
+      write_policy: manual_work_required
+      signal: goal_mentions_maintain
+      next_command: manual: clarify maintain target, implement approved changes, then run agent-flow closeout
+      suggested_questions:
+        - 개선하려는 대상은 라우팅, 검증, 문서, 스킬, 레퍼런스 흐름 중 어디인가요?
+        - 단순화, 자동화, 안정성 중 무엇을 가장 우선할까요?
+        - 반드시 유지해야 하는 기존 동작이나 호환성이 있나요?
+
+    build:
+      reason: 자연어 요청에 reference, maintain, closeout 신호가 없어 일반 구현 흐름으로 분류합니다.
+      confidence: medium
+      requires_confirmation: false
+      write_policy: manual_work_required
+      signal: goal_mentions_build
+      next_command: manual: clarify build scope, implement approved changes, then run agent-flow closeout
+      suggested_questions:
+        - 이번에 구현할 정확한 범위는 어디까지인가요?
+        - 완료 여부를 판단할 수용 기준이나 테스트 시나리오는 무엇인가요?
+        - 선호하는 스택, 라이브러리, 피해야 할 제약이 있나요?
+
+internal:
+  reference:
+    - path: scripts/reference-intake.py
+      used_by: agent-flow research
+    - path: scripts/reference-task-queue.py
+      used_by: agent-flow research and resumable reference analysis
+    - path: scripts/create-reference-proposal.py
+      used_by: agent-flow research
+    - path: scripts/validate-reference-candidates.py
+      used_by: agent-flow research
+    - path: scripts/validate-reference-proposals.py
+      used_by: agent-flow research
+    - path: scripts/reference-copy-ledger.py
+      used_by: approved partial-copy absorption
+    - path: scripts/refresh-references.py
+      used_by: reference refresh workflow
+
+  decision:
+    - path: scripts/review-queue.py
+      used_by: agent-flow start and decide
+
+  validation:
+    - path: scripts/verify.py
+      used_by: agent-flow closeout
+    - path: scripts/verify-skeleton.py
+      used_by: verify and quality-gate
+    - path: scripts/verify-parity.py
+      used_by: verify
+    - path: scripts/portability-scan.py
+      used_by: quality-gate and skeleton portability checks
+    - path: scripts/checkpoint.py
+      used_by: long task milestone checkpoints
+    - path: scripts/tool-health.py
+      used_by: quality-gate tool result health checks
+    - path: scripts/tool-guardrail.py
+      used_by: quality-gate repeated tool failure guardrails
+    - path: scripts/mcp-audit.py
+      used_by: quality-gate MCP package metadata dry-run audit
+    - path: scripts/permission-evaluate.py
+      used_by: hooks and validators for typed permission decisions
+    - path: scripts/path-safety.py
+      used_by: permission evaluator and hook write target checks
+    - path: scripts/plugin-manifest-check.py
+      used_by: quality-gate plugin metadata validation
+    - path: scripts/schema-check.py
+      used_by: schema-backed contract validation
+    - path: scripts/markdown-sanitize.py
+      used_by: generated Markdown/frontmatter drift detection
+    - path: scripts/failure-classify.py
+      used_by: validation and closeout failure categorization
+    - path: scripts/quality-gate.py
+      used_by: agent-flow closeout
+    - path: scripts/security-scan.py
+      used_by: quality-gate and partial-copy review
+    - path: scripts/skill-surface-check.py
+      used_by: verify and quality-gate
+    - path: scripts/generate-codemaps.py
+      used_by: codebase navigation and quality-gate documentation checks
+    - path: scripts/knowledge-search.py
+      used_by: bounded knowledge/wiki retrieval
+    - path: scripts/eval.py
+      used_by: skill regression checks
+    - path: scripts/eval-all.py
+      used_by: quality-gate
+    - path: scripts/lib_catalog.py
+      used_by: agent-flow, schema-check, and verify-skeleton catalog validation
+    - path: scripts/change-drift-check.py
+      used_by: quality-gate operational drift reporting
+    - path: scripts/redact.py
+      used_by: runtime logging and evidence redaction
+    - path: scripts/subdir-hints.py
+      used_by: agent-brief scoped rule discovery
+    - path: scripts/lib_runtime_lock.py
+      used_by: append-only runtime ledger writes
+
+  closeout:
+    - path: scripts/task-closeout.py
+      used_by: agent-flow closeout
+    - path: scripts/completion-evidence.py
+      used_by: task-closeout
+    - path: scripts/resume-readiness.py
+      used_by: quality-gate
+    - path: scripts/session-snapshot.py
+      used_by: task-closeout and quality-gate
+    - path: scripts/search-activity-log.py
+      used_by: handoff review
+    - path: scripts/session-recall.py
+      used_by: indexed session recall
+    - path: scripts/agent-brief.py
+      used_by: planner delegation to specialist agents via config/agent-team.yaml
+    - path: scripts/rotate-activity-log.py
+      used_by: log maintenance
+
+  lifecycle:
+    - path: scripts/skill-lifecycle.py
+      used_by: task-closeout and skill promotion proposals
+    - path: scripts/skill-stocktake.py
+      used_by: skill lifecycle stocktake reporting
+    - path: scripts/install-state.py
+      used_by: bootstrap and convert
+    - path: scripts/install-profiles.py
+      used_by: bootstrap profile planning and validation
+    - path: scripts/cost-log.py
+      used_by: cost ledger checks
+
+  bootstrap:
+    - path: scripts/bootstrap/new-project.py
+      used_by: new project bootstrap
+    - path: scripts/convert.py
+      used_by: canonical artifact generation
+    - path: scripts/upgrade-from-skeleton.py
+      used_by: skeleton upgrades
+    - path: scripts/skeleton-doctor.py
+      used_by: readiness diagnostics
+    - path: scripts/agent-autonomy-check.py
+      used_by: quality-gate
+    - path: scripts/list-open-questions.py
+      used_by: clarification checks
+    - path: scripts/notion-doc-quality-check.py
+      used_by: Notion documentation workflow
+    - path: scripts/wiki-lint.py
+      used_by: knowledge wiki checks
+    - path: scripts/hooks/post-tool-use-log.py
+      used_by: activity logging hooks
+
+future_candidates:
+  - command: scripts/agent-flow.py run --goal "<goal>"
+    status: deferred
+    reason: Full automatic execution needs more guardrails around approval, writes, and rollback.
+
+specialist_agents:
+  - name: build-error-resolver
+    public: false
+    routed_by: planner
+    purpose: Minimal build, typecheck, and test failure fixes after implementation.
+  - name: security-reviewer
+    public: false
+    routed_by: planner
+    purpose: Review security-scan, permission, secret, and copied-source findings.
+  - name: reference-reviewer
+    public: false
+    routed_by: planner
+    purpose: Compare reference candidates and produce source-backed absorption notes.
+  - name: docs-sync-auditor
+    public: false
+    routed_by: planner
+    purpose: Check docs, catalog, codemap, and workflow drift.
+  - name: closeout-validator
+    public: false
+    routed_by: planner
+    purpose: Independently inspect verify, quality-gate, and completion evidence.
