@@ -1,7 +1,7 @@
 # Progress
 
 ## 현재 마일스톤
-Threads 전체 스레드 브리핑 개선 완료
+GitHub `.env` 노출 히스토리 정리 완료
 
 ## 완료된 작업
 - 골격 부트스트랩
@@ -22,7 +22,12 @@ Threads 전체 스레드 브리핑 개선 완료
 - Docker 컨테이너에서 전체 Node 테스트 17개 통과를 확인했다.
 - 리빌드된 Docker 이미지에서 실제 Threads 최신 글 본문 길이 2859자와 `1/`, `2/`, `7/` 포함을 확인했다.
 - Docker 컨테이너에서 OpenAI, Anthropic, Threads 최신 1건씩 Discord 웹훅 전송을 확인했다.
+- GitHub `main` 히스토리에서 `.env` 경로를 제거했다.
+- 원격 `main`을 `2f2ce87`에서 `.env` 제거 히스토리인 `a5175f1`로 `--force-with-lease` 갱신했다.
+- `git log --all -- .env`, `git rev-list --objects --all | rg '(^| )\\.env$'`, `git ls-tree -r HEAD --name-only | rg '^\\.env$'`에서 `.env` 경로가 없음을 확인했다.
+- `python3 scripts/security-scan.py --strict`에서 critical/high/medium/low/info 모두 0건을 확인했다.
 
 ## 다음 작업
-- 로컬 `.env`는 strict 보안 스캔에서 계속 secret 파일로 감지되므로, 배포/커밋 전에는 secret 보관 위치와 스캔 정책을 확정한다.
+- GitHub에 노출됐던 `.env` 값은 폐기된 것으로 보고 `GROQ_API_KEY`와 Discord Webhook 관련 secret을 교체한다.
 - README와 프로젝트 프로필은 현재 OpenAI 중심 설명이라, Anthropic/Threads까지 반영하도록 별도 문서 갱신을 검토한다.
+- `python3 scripts/verify-skeleton.py`는 현재 `CLAUDE.md` 누락과 `.claude-plugin/plugin.json` entrypoint 불일치 때문에 실패하므로 별도 harness 정리가 필요하다.
