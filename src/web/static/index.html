@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>News Crawling · Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__brand">
+        <span class="topbar__dot"></span>
+        <span class="topbar__title">News Crawling</span>
+        <span class="topbar__subtitle">Discord delivery control</span>
+      </div>
+      <div class="topbar__meta" id="meta-summary">—</div>
+    </header>
+
+    <main class="layout">
+      <section class="panel" aria-labelledby="webhooks-heading">
+        <header class="panel__header">
+          <h2 id="webhooks-heading">Discord Webhooks</h2>
+          <p>여러 Discord 채널을 등록해두고 라우트에서 골라 쓰세요.</p>
+        </header>
+
+        <form id="webhook-form" class="form form--row">
+          <input id="webhook-label" type="text" placeholder="라벨 (예: Team Alpha)" autocomplete="off" required />
+          <input id="webhook-url" type="url" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" required />
+          <button type="submit" class="btn btn--primary">추가</button>
+        </form>
+
+        <div id="webhook-list" class="card-list"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="routes-heading">
+        <header class="panel__header">
+          <h2 id="routes-heading">Routes</h2>
+          <p>어떤 소스를 어떤 디스코드에 몇 분 주기로 보낼지 설정합니다.</p>
+        </header>
+
+        <form id="route-form" class="form form--grid">
+          <label>
+            <span>Target source</span>
+            <select id="route-source" required></select>
+          </label>
+          <label>
+            <span>Discord webhook</span>
+            <select id="route-webhook" required></select>
+          </label>
+          <label>
+            <span>주기 (분)</span>
+            <input id="route-interval" type="number" min="1" step="1" value="10" required />
+          </label>
+          <button type="submit" class="btn btn--primary">라우트 추가</button>
+        </form>
+
+        <div id="route-list" class="route-list"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="settings-heading">
+        <header class="panel__header">
+          <h2 id="settings-heading">Settings</h2>
+          <p>Groq API 키와 위험 작업.</p>
+        </header>
+
+        <form id="groq-form" class="form form--row">
+          <input id="groq-key" type="password" placeholder="gsk_…" autocomplete="off" required />
+          <button type="submit" class="btn btn--primary">저장</button>
+          <button type="button" id="groq-clear" class="btn btn--ghost">제거</button>
+        </form>
+        <p id="groq-status" class="settings__status">상태 확인 중…</p>
+
+        <div class="danger">
+          <div>
+            <h3>전체 초기화</h3>
+            <p>등록된 디스코드 웹훅, 라우트, 저장된 Groq API 키를 모두 삭제합니다.</p>
+          </div>
+          <button id="reset-all" type="button" class="btn btn--danger">초기화</button>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

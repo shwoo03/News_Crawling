@@ -10,24 +10,34 @@ import { ThreadsNewsAdapter } from "./sources/threads-news.ts";
 import { SqliteStateStore } from "./storage/sqlite.ts";
 import type { SourceAdapter } from "./types.ts";
 
-export async function runWorker(config: AppConfig): Promise<void> {
-  const logger = new Logger(config.logLevel, config.logFormat);
-  const store = new SqliteStateStore(config.sqlitePath);
-  const sources: SourceAdapter[] = [
+const ROUTE_TICK_MS = 30_000;
+
+export function buildSourceAdapters(): SourceAdapter[] {
+  return [
     new OpenAINewsAdapter(),
     new AnthropicNewsAdapter(),
     new ThreadsNewsAdapter(),
   ];
-  const summarizer = new GroqSummarizer(
-    config.groqApiKey,
-    config.groqModels,
-    config.summaryMaxCharacters,
-  );
-  const webhookUrl = config.discordWebhookUrl;
-  const notifier = new DiscordNotifier(webhookUrl);
+}
 
-  if (!webhookUrl) {
-    logger.warn("Discord webhook is not configured. Top-level delivery is skipped.");
+export function resolveGroqApiKey(
+  store: SqliteStateStore,
+  envKey: string | undefined,
+): string | undefined {
+  const stored = store.getSetting("groq_api_key")?.trim();
+  if (stored) {
+    return stored;
+  }
+
+  return envKey?.trim() || undefined;
+}
+
+export async function runWorker(config: AppConfig): Promise<void> {
+  const logger = new Logger(config.logLevel, config.logFormat);
+  const store = new SqliteStateStore(config.sqlitePath);
+  const sources = buildSourceAdapters();
+  for (const source of sources) {
+    store.ensureSource(source);
   }
 
   process.on("SIGINT", () => {
@@ -41,23 +51,190 @@ export async function runWorker(config: AppConfig): Promise<void> {
   });
 
   logger.info("Worker started.", {
-    pollIntervalMinutes: config.pollIntervalMinutes,
+    tickIntervalSeconds: ROUTE_TICK_MS / 1000,
     sources: sources.map((source) => source.id),
   });
 
-  try {
-    for (;;) {
-      try {
-        await runCycle({ logger, store, sources, summarizer, notifier, webhookUrl });
-      } catch (error) {
-        logger.error("Worker cycle failed.", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-      await delay(config.pollIntervalMinutes * 60_000);
+  for (;;) {
+    try {
+      await tickRoutes({ logger, store, sources, config });
+    } catch (error) {
+      logger.error("Worker tick failed.", {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
-  } finally {
-    store.close();
+    await delay(ROUTE_TICK_MS);
+  }
+}
+
+async function tickRoutes(input: {
+  logger: Logger;
+  store: SqliteStateStore;
+  sources: SourceAdapter[];
+  config: AppConfig;
+}): Promise<void> {
+  const { logger, store, sources, config } = input;
+  const routes = store.listRoutes().filter((route) => route.enabled);
+  if (routes.length === 0) {
+    return;
+  }
+
+  const groqApiKey = resolveGroqApiKey(store, config.groqApiKey);
+  if (!groqApiKey) {
+    logger.warn("Groq API key is not configured. Routes will be skipped this tick.");
+    return;
+  }
+
+  const summarizer = new GroqSummarizer(
+    groqApiKey,
+    config.groqModels,
+    config.summaryMaxCharacters,
+  );
+
+  const sourceMap = new Map(sources.map((source) => [source.id, source] as const));
+  const now = Date.now();
+
+  for (const route of routes) {
+    const dueAt = route.lastRunAt ? Date.parse(route.lastRunAt) : 0;
+    const intervalMs = route.pollIntervalMinutes * 60_000;
+    if (route.lastRunAt && now - dueAt < intervalMs) {
+      continue;
+    }
+
+    const source = sourceMap.get(route.sourceId);
+    if (!source) {
+      logger.warn("Route references unknown source. Skipping.", {
+        routeId: route.id,
+        sourceId: route.sourceId,
+      });
+      continue;
+    }
+
+    const webhook = store.getWebhook(route.webhookId);
+    if (!webhook) {
+      logger.warn("Route references missing webhook. Skipping.", {
+        routeId: route.id,
+        webhookId: route.webhookId,
+      });
+      continue;
+    }
+
+    try {
+      await runRouteCycle({
+        logger,
+        store,
+        source,
+        summarizer,
+        notifier: new DiscordNotifier(webhook.url),
+        webhookUrl: webhook.url,
+        routeId: route.id,
+      });
+      store.markRouteRun(route.id);
+    } catch (error) {
+      logger.error("Route cycle failed.", {
+        routeId: route.id,
+        sourceId: route.sourceId,
+        webhookId: route.webhookId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      store.markRouteRun(route.id);
+    }
+  }
+}
+
+async function runRouteCycle(input: {
+  logger: Logger;
+  store: SqliteStateStore;
+  source: SourceAdapter;
+  summarizer: GroqSummarizer;
+  notifier: DiscordNotifier;
+  webhookUrl: string;
+  routeId: number;
+}): Promise<void> {
+  const { logger, store, source, summarizer, notifier, webhookUrl, routeId } = input;
+
+  store.ensureSource(source);
+  logger.info("Checking route.", {
+    routeId,
+    sourceId: source.id,
+    rssUrl: source.rssUrl,
+  });
+
+  const items = sortByPublishedDesc(await source.listLatest());
+
+  if (store.countArticlesForSource(source.id) === 0) {
+    for (const item of items) {
+      store.markSeen({
+        sourceId: source.id,
+        title: item.title,
+        url: item.url,
+        publishedAt: item.publishedAt,
+        category: item.category,
+      });
+    }
+
+    logger.info("Initial bootstrap completed for source.", {
+      routeId,
+      sourceId: source.id,
+      seededCount: items.length,
+    });
+    return;
+  }
+
+  for (const item of items) {
+    if (store.hasSeen(source.id, item.url)) {
+      continue;
+    }
+
+    logger.info("New article detected.", {
+      routeId,
+      sourceId: source.id,
+      url: item.url,
+    });
+
+    const articleId = store.markSeen({
+      sourceId: source.id,
+      title: item.title,
+      url: item.url,
+      publishedAt: item.publishedAt,
+      category: item.category,
+    });
+
+    try {
+      const article = await source.fetchArticle(item);
+      const summary = await summarizer.summarize(article);
+      const delivery = await notifier.send(article, summary);
+
+      store.recordDelivery({
+        articleId,
+        status: delivery.status,
+        webhookTarget: webhookUrl,
+        errorMessage: delivery.status === "skipped" ? delivery.reason : undefined,
+      });
+
+      logger.info("Article processed.", {
+        routeId,
+        sourceId: source.id,
+        url: item.url,
+        deliveryStatus: delivery.status,
+        summaryLength: summary.charCount,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      store.recordDelivery({
+        articleId,
+        status: "failed",
+        webhookTarget: webhookUrl,
+        errorMessage: message,
+      });
+
+      logger.error("Article processing failed.", {
+        routeId,
+        sourceId: source.id,
+        url: item.url,
+        error: message,
+      });
+    }
   }
 }
 
@@ -67,20 +244,25 @@ export async function runTopArticleTest(
   focusUrl?: string,
 ): Promise<void> {
   const logger = new Logger(config.logLevel, config.logFormat);
-  const sources: SourceAdapter[] = [
-    new OpenAINewsAdapter(),
-    new AnthropicNewsAdapter(),
-    new ThreadsNewsAdapter(),
-  ];
+  const store = new SqliteStateStore(config.sqlitePath);
+  const sources = buildSourceAdapters();
+  const groqApiKey = resolveGroqApiKey(store, config.groqApiKey);
+  if (!groqApiKey) {
+    throw new Error(
+      "Groq API key is not configured. Set it in the dashboard or via GROQ_API_KEY.",
+    );
+  }
+
   const summarizer = new GroqSummarizer(
-    config.groqApiKey,
+    groqApiKey,
     config.groqModels,
     config.summaryMaxCharacters,
   );
-  const webhookUrl = config.discordWebhookUrl;
 
+  const webhooks = store.listWebhooks();
+  const firstWebhookUrl = webhooks[0]?.url;
   logger.info("Top test webhook target.", {
-    webhook: summarizeWebhook(webhookUrl),
+    webhook: summarizeWebhook(firstWebhookUrl),
   });
 
   logger.info("Running top article test.", {
@@ -120,7 +302,7 @@ export async function runTopArticleTest(
       try {
         const article = await source.fetchArticle(item);
         const summary = await summarizer.summarize(article);
-        const delivery = await notifierFromUrl(webhookUrl).send(article, summary);
+        const delivery = await new DiscordNotifier(firstWebhookUrl).send(article, summary);
 
         logger.info("Top article test processed.", {
           sourceId: source.id,
@@ -131,7 +313,7 @@ export async function runTopArticleTest(
           summaryLength: summary.charCount,
         });
         if (delivery.status === "skipped") {
-          logger.warn("Discord webhook is missing. Set DISCORD_WEBHOOK_URL to enable delivery.");
+          logger.warn("Discord webhook is missing. Add a webhook in the dashboard to enable delivery.");
         }
       } catch (error) {
         logger.error("Top article test failed for item.", {
@@ -143,10 +325,8 @@ export async function runTopArticleTest(
       }
     }
   }
-}
 
-function notifierFromUrl(webhookUrl: string | undefined): DiscordNotifier {
-  return new DiscordNotifier(webhookUrl);
+  store.close();
 }
 
 function summarizeWebhook(value: string | undefined): string {

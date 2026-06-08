@@ -2,45 +2,41 @@ import { resolve } from "node:path";
 import type { LogFormat, LogLevel } from "./types.ts";
 
 export type AppConfig = {
-  groqApiKey: string;
+  groqApiKey?: string;
   groqModels: string[];
-  discordWebhookUrl?: string;
   summaryMaxCharacters: number;
   topTestArticleCount: number;
   topTestReferenceUrl?: string;
-  pollIntervalMinutes: number;
   logLevel: LogLevel;
   logFormat: LogFormat;
   sqlitePath: string;
+  dashboardPort: number;
+  dashboardHost: string;
 };
 
 export function getConfig(): AppConfig {
-  const groqApiKey = process.env.GROQ_API_KEY?.trim();
-  if (!groqApiKey) {
-    throw new Error("GROQ_API_KEY is required.");
-  }
-
+  const groqApiKey = process.env.GROQ_API_KEY?.trim() || undefined;
   const groqModels = resolveGroqModels();
   const summaryMaxCharacters = parsePositiveInteger(process.env.SUMMARY_MAX_CHARACTERS, 1800);
   const topTestArticleCount = parsePositiveInteger(process.env.TOP_TEST_ARTICLE_COUNT, 2);
   const topTestReferenceUrl = process.env.TOP_TEST_REFERENCE_URL?.trim() || undefined;
-  const pollIntervalMinutes = parsePositiveInteger(process.env.POLL_INTERVAL_MINUTES, 10);
   const logLevel = parseLogLevel(process.env.LOG_LEVEL);
   const logFormat = parseLogFormat(process.env.LOG_FORMAT);
   const sqlitePath = resolve(process.env.SQLITE_PATH?.trim() || "./data/news-crawling.sqlite");
-  const discordWebhookUrl = resolveWebhookUrl();
+  const dashboardPort = parsePositiveInteger(process.env.DASHBOARD_PORT, 3000);
+  const dashboardHost = process.env.DASHBOARD_HOST?.trim() || "0.0.0.0";
 
   return {
     groqApiKey,
     groqModels,
-    discordWebhookUrl,
     summaryMaxCharacters,
     topTestArticleCount,
     topTestReferenceUrl,
-    pollIntervalMinutes,
     logLevel,
     logFormat,
     sqlitePath,
+    dashboardPort,
+    dashboardHost,
   };
 }
 
@@ -53,22 +49,6 @@ function resolveGroqModels(): string[] {
     .filter(Boolean);
 
   return [...new Set([primary, ...fallbacks])];
-}
-
-function resolveWebhookUrl(): string | undefined {
-  const directUrl = process.env.DISCORD_WEBHOOK_URL?.trim();
-  if (directUrl) {
-    return directUrl;
-  }
-
-  const webhookId = process.env.DISCORD_WEBHOOK_ID?.trim();
-  const webhookToken = process.env.DISCORD_WEBHOOK_TOKEN?.trim();
-
-  if (!webhookId || !webhookToken) {
-    return undefined;
-  }
-
-  return `https://discord.com/api/webhooks/${webhookId}/${webhookToken}`;
 }
 
 function parsePositiveInteger(value: string | undefined, fallback: number): number {

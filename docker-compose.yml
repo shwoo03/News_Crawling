@@ -3,7 +3,10 @@ services:
     build:
       context: .
     env_file:
-      - .env
+      - path: .env
+        required: false
+    ports:
+      - "3000:3000"
     volumes:
       - ./data:/app/data
     restart: unless-stopped

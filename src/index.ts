@@ -1,6 +1,9 @@
-import { runTopArticleTest, runWorker } from "./app.ts";
+import { buildSourceAdapters, runTopArticleTest, runWorker } from "./app.ts";
 import { getConfig } from "./config.ts";
+import { Logger } from "./logger.ts";
+import { SqliteStateStore } from "./storage/sqlite.ts";
 import { loadEnvFile } from "./utils/env.ts";
+import { createDashboardServer } from "./web/server.ts";
 
 loadEnvFile();
 
@@ -23,6 +26,36 @@ if (cli.topMode) {
   process.exit(0);
 }
 
+const dashboardLogger = new Logger(config.logLevel, config.logFormat);
+const dashboardStore = new SqliteStateStore(config.sqlitePath);
+const dashboardSources = buildSourceAdapters();
+for (const source of dashboardSources) {
+  dashboardStore.ensureSource(source);
+}
+
+const dashboard = createDashboardServer({
+  store: dashboardStore,
+  sources: dashboardSources,
+  logger: dashboardLogger,
+  port: config.dashboardPort,
+  host: config.dashboardHost,
+});
+await dashboard.start();
+
+process.on("SIGINT", () => {
+  void dashboard.close().finally(() => {
+    dashboardStore.close();
+    process.exit(0);
+  });
+});
+
+process.on("SIGTERM", () => {
+  void dashboard.close().finally(() => {
+    dashboardStore.close();
+    process.exit(0);
+  });
+});
+
 await runWorker(config);
 
 function parseCliConfig(argv: string[]): CliConfig {
@@ -42,7 +75,7 @@ function parseCliConfig(argv: string[]): CliConfig {
 function printUsage(): void {
   const message = [
     "Usage:",
-    "  npm start                  # run worker (poll mode)",
+    "  npm start                  # run worker + dashboard (poll mode)",
     "  npm run top                # send top test articles",
     "  npm run top -- [options]   # options for single run",
     "",
